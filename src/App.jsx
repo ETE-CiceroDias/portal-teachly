@@ -49,9 +49,10 @@ function AppShell({ user }) {
 
   useEffect(() => {
     if (!user || !activeTurma) { setState({}); return; }
-    // activeTurma é o UUID da turma — passa direto pro banco
-    EstadoAulas.load(activeTurma).then(s => setState(s));
-  }, [user, activeTurma]);
+    const turma = turmas.find(t => t.id === activeTurma);
+    const tKey  = turma?.key || turma?.id || '';
+    EstadoAulas.load(activeTurma, tKey).then(s => setState(s));
+  }, [user, activeTurma, turmas]);
 
   const persist = useCallback((updater) => {
     setState(prev => typeof updater === 'function' ? updater(prev) : updater);

@@ -403,7 +403,7 @@ export const DesafioUX = {
 
 export const EstadoAulas = {
 
-  async load(turmaId) {
+  async load(turmaId, turmaKey = '') {
     const user = await Auth.getUser();
     if (!user) return {};
     const { data, error } = await supabase
@@ -412,9 +412,11 @@ export const EstadoAulas = {
       .eq('professor_id', user.id)
       .eq('turma_id', turmaId);
     if (error) { console.error(error); return {}; }
-    // Converte lista → objeto keyed como antes: { 'dcu_mod1a_AULA_01': { done, problems } }
+    // Reconstrói a chave no formato que o app usa: 'dcu_mod1a_AULA_01'
     return data.reduce((acc, row) => {
-      const key = `${row.disciplina_key}_${row.aula_id}`;
+      const key = turmaKey
+        ? `${row.disciplina_key}_${turmaKey}_${row.aula_id}`
+        : `${row.disciplina_key}_${row.aula_id}`;
       acc[key] = { done: row.done, problems: row.problems, notas: row.notas };
       return acc;
     }, {});
