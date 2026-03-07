@@ -453,7 +453,7 @@ export const EstadoAulas = {
         aula_id:        aulaId,
         atualizado_em:  new Date().toISOString(),
         ...safe,
-      });
+      }, { onConflict: 'professor_id,turma_id,disciplina_key,aula_id' });
     if (error) { console.error('EstadoAulas.save error:', error); throw error; }
   },
 };
