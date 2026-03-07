@@ -417,7 +417,20 @@ export const EstadoAulas = {
       const key = turmaKey
         ? `${row.disciplina_key}_${turmaKey}_${row.aula_id}`
         : `${row.disciplina_key}_${row.aula_id}`;
-      acc[key] = { done: row.done, problems: row.problems, notas: row.notas };
+      acc[key] = {
+        done:      row.done,
+        problems:  row.problems,
+        nota_prof: row.nota_prof ?? '',
+        data_aula: row.data_aula ?? '',
+        slide_url: row.slide_url ?? '',
+        teoria:    row.teoria    ?? '',
+        pratica:   row.pratica   ?? '',
+        codealong: row.codealong ?? '',
+        recurso:   row.recurso   ?? '',
+        conexao:   row.conexao   ?? '',
+        obs:       row.obs       ?? '',
+        plano_b:   row.plano_b   ?? '',
+      };
       return acc;
     }, {});
   },
@@ -425,17 +438,23 @@ export const EstadoAulas = {
   async save(turmaId, disciplinaKey, aulaId, updates) {
     const user = await Auth.getUser();
     if (!user) return;
+    // Garante que só campos válidos chegam ao banco
+    const allowed = ['done','problems','nota_prof','data_aula','slide_url',
+                     'teoria','pratica','codealong','recurso','conexao','obs','plano_b'];
+    const safe = Object.fromEntries(
+      Object.entries(updates).filter(([k]) => allowed.includes(k))
+    );
     const { error } = await supabase
       .from('estado_aulas')
       .upsert({
-        professor_id: user.id,
-        turma_id: turmaId,
+        professor_id:   user.id,
+        turma_id:       turmaId,
         disciplina_key: disciplinaKey,
-        aula_id: aulaId,
-        atualizado_em: new Date().toISOString(),
-        ...updates,
+        aula_id:        aulaId,
+        atualizado_em:  new Date().toISOString(),
+        ...safe,
       });
-    if (error) throw error;
+    if (error) { console.error('EstadoAulas.save error:', error); throw error; }
   },
 };
 
