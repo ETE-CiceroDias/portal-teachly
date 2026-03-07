@@ -1,13 +1,31 @@
-// pages/Disciplinas.jsx — gerenciar quais disciplinas aparecem por turma
-import { useState } from 'react';
+// pages/Disciplinas.jsx — com progresso de aulas dadas por disciplina
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
 
 export function Disciplinas({ onNavigate }) {
-  
   const { turmas, reload } = useOrg();
-  const [saving, setSaving] = useState(null); // id da disc sendo salva
+  const [saving, setSaving] = useState(null);
   const [saved,  setSaved]  = useState(false);
+
+  // Aulas planejadas e dadas por disciplina
+  const [aulasMap, setAulasMap] = useState({}); // { disciplina_id: { total, dadas } }
+
+  useEffect(() => {
+    supabase
+      .from('aulas_planejadas')
+      .select('disciplina_id, status')
+      .then(({ data }) => {
+        if (!data) return;
+        const map = {};
+        data.forEach(a => {
+          if (!map[a.disciplina_id]) map[a.disciplina_id] = { total: 0, dadas: 0 };
+          map[a.disciplina_id].total++;
+          if (a.status === 'dada') map[a.disciplina_id].dadas++;
+        });
+        setAulasMap(map);
+      });
+  }, []);
 
   const toggleAtiva = async (disc) => {
     setSaving(disc.id);
@@ -55,13 +73,14 @@ export function Disciplinas({ onNavigate }) {
       <div className="page-header">
         <div>
           <div className="page-title">Disciplinas</div>
-          <div className="page-subtitle">Ative ou oculte disciplinas por turma. Os dados não são apagados.</div>
+          <div className="page-subtitle">Progresso de aulas dadas por disciplina. Dados nunca são apagados.</div>
         </div>
         {saved && <span style={{ color: 'var(--green)', fontSize: '0.85rem', fontWeight: 600 }}>✓ Salvo!</span>}
       </div>
 
       {turmas.map(turma => (
-        <div key={turma.id} style={{ marginBottom: 28 }}>
+        <div key={turma.id} style={{ marginBottom: 32 }}>
+          {/* Cabeçalho da turma */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: turma.cor, flexShrink: 0 }} />
             <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9375rem' }}>
@@ -83,39 +102,46 @@ export function Disciplinas({ onNavigate }) {
               Nenhuma disciplina nessa turma
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px,1fr))', gap: 10 }}>
               {turma.disciplinas.map(disc => {
                 const oculta   = !disc.ativa;
                 const isSaving = saving === disc.id;
+                const stats    = aulasMap[disc.id] || { total: 0, dadas: 0 };
+                const pct      = stats.total > 0 ? Math.round((stats.dadas / stats.total) * 100) : 0;
+                const temAulas = stats.total > 0;
 
                 return (
                   <div
                     key={disc.id}
-                    onClick={() => !isSaving && toggleAtiva(disc)}
                     style={{
                       background:   oculta ? 'var(--surface)' : `${disc.cor}10`,
                       border:       `1px solid ${oculta ? 'var(--border)' : disc.cor + '40'}`,
                       borderRadius: 12, padding: '14px 16px',
-                      cursor: isSaving ? 'wait' : 'pointer',
                       transition: 'all 0.2s',
                       opacity: oculta ? 0.45 : 1,
-                      userSelect: 'none',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    {/* Linha superior: bolinha + badge status */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <div style={{ width: 10, height: 10, borderRadius: '50%', background: disc.cor, flexShrink: 0 }} />
-                      <div style={{
-                        fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px',
-                        borderRadius: 99, border: '1px solid',
-                        color:       oculta ? 'var(--text3)' : disc.cor,
-                        borderColor: oculta ? 'var(--border)' : disc.cor + '60',
-                        background:  oculta ? 'transparent' : disc.cor + '15',
-                      }}>
+                      <div
+                        onClick={() => !isSaving && toggleAtiva(disc)}
+                        style={{
+                          fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px',
+                          borderRadius: 99, border: '1px solid',
+                          color:       oculta ? 'var(--text3)' : disc.cor,
+                          borderColor: oculta ? 'var(--border)' : disc.cor + '60',
+                          background:  oculta ? 'transparent' : disc.cor + '15',
+                          cursor: isSaving ? 'wait' : 'pointer',
+                          userSelect: 'none',
+                        }}
+                      >
                         {isSaving ? '…' : oculta ? 'Oculta' : 'Ativa'}
                       </div>
                     </div>
 
-                    <div style={{ fontWeight: 700, color: oculta ? 'var(--text3)' : 'var(--text)', fontSize: '0.9rem' }}>
+                    {/* Nome da disciplina */}
+                    <div style={{ fontWeight: 700, color: oculta ? 'var(--text3)' : 'var(--text)', fontSize: '0.9rem', marginBottom: 4 }}>
                       {disc.label}
                     </div>
 
@@ -123,9 +149,44 @@ export function Disciplinas({ onNavigate }) {
                       <div style={{
                         fontSize: '0.7rem', fontFamily: 'monospace', color: 'var(--text3)',
                         background: 'var(--surface2)', borderRadius: 5,
-                        padding: '2px 7px', display: 'inline-block', marginTop: 4,
+                        padding: '2px 7px', display: 'inline-block', marginBottom: 10,
                       }}>
                         {disc.code}
+                      </div>
+                    )}
+
+                    {/* Progresso de aulas */}
+                    {temAulas ? (
+                      <div style={{ marginTop: 8 }}>
+                        {/* Barra de progresso */}
+                        <div style={{ height: 5, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden', marginBottom: 6 }}>
+                          <div style={{
+                            height: '100%', borderRadius: 99,
+                            width: `${pct}%`,
+                            background: pct === 100
+                              ? 'var(--green)'
+                              : oculta ? 'var(--text3)' : disc.cor,
+                            transition: 'width 0.4s ease',
+                          }} />
+                        </div>
+                        {/* Texto */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text3)' }}>
+                            <span style={{ color: 'var(--green)', fontWeight: 700 }}>{stats.dadas}</span>
+                            {' '}dada{stats.dadas !== 1 ? 's' : ''} de{' '}
+                            <span style={{ fontWeight: 600 }}>{stats.total}</span> planejada{stats.total !== 1 ? 's' : ''}
+                          </div>
+                          <div style={{
+                            fontSize: '0.68rem', fontWeight: 700,
+                            color: pct === 100 ? 'var(--green)' : 'var(--text3)',
+                          }}>
+                            {pct}%
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 8, fontSize: '0.72rem', color: 'var(--text3)', fontStyle: 'italic' }}>
+                        Nenhuma aula planejada ainda
                       </div>
                     )}
                   </div>
@@ -141,7 +202,7 @@ export function Disciplinas({ onNavigate }) {
         borderRadius: 12, padding: '14px 16px', fontSize: '0.8125rem', color: 'var(--accent3)',
         marginTop: 8,
       }}>
-        💡 Disciplinas ocultas somem do menu lateral mas os dados ficam preservados no banco. Você pode reativar a qualquer momento.
+        💡 Clique no badge <strong>Ativa/Oculta</strong> para esconder uma disciplina do menu. Os dados e o progresso de aulas ficam preservados no banco e podem ser recuperados a qualquer momento.
       </div>
     </div>
   );

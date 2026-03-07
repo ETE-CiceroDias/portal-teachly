@@ -1,8 +1,8 @@
-// pages/Calendario.jsx — com aulas planejadas + filtro + modal de planejamento
+// pages/Calendario.jsx — com distinção clara entre aula PLANEJADA e DADA
 import { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
-import { CalendarCheck, CalendarBlank, Funnel, ClockCountdown } from '@phosphor-icons/react';
+import { CalendarCheck, ClockCountdown, CheckCircle } from '@phosphor-icons/react';
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -92,7 +92,6 @@ function ModalPlanejarAula({ dataInicial, turmas, onSalvar, onClose }) {
   const discs = (turma?.disciplinas || []).filter(d => d.ativa);
   const disc  = discs.find(d => d.id === discId);
 
-  // Flatten aulas da disciplina selecionada
   const aulasDisc = useMemo(() => {
     if (!disc) return [];
     const result = [];
@@ -104,7 +103,6 @@ function ModalPlanejarAula({ dataInicial, turmas, onSalvar, onClose }) {
     return result;
   }, [disc]);
 
-  // Reset disc e aula quando muda turma
   useEffect(() => { setDiscId(''); setAulaId(''); }, [turmaId]);
   useEffect(() => { setAulaId(''); }, [discId]);
 
@@ -120,14 +118,14 @@ function ModalPlanejarAula({ dataInicial, turmas, onSalvar, onClose }) {
       aula_titulo: aulaObj?.titulo || aulaId,
       data_planejada: data,
       hora, obs,
+      status: 'planejada',
     });
     setSaving(false);
     onClose();
   };
 
   return (
-    <Modal title="Planejar aula" onClose={onClose} wide>
-      {/* Step 1: Turma */}
+    <Modal title="📅 Planejar aula" onClose={onClose} wide>
       <div className="modal-field">
         <div className="modal-label">1. Turma</div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
@@ -141,7 +139,6 @@ function ModalPlanejarAula({ dataInicial, turmas, onSalvar, onClose }) {
         </div>
       </div>
 
-      {/* Step 2: Disciplina */}
       {turmaId && (
         <div className="modal-field">
           <div className="modal-label">2. Disciplina</div>
@@ -159,7 +156,6 @@ function ModalPlanejarAula({ dataInicial, turmas, onSalvar, onClose }) {
         </div>
       )}
 
-      {/* Step 3: Aula */}
       {discId && (
         <div className="modal-field">
           <div className="modal-label">3. Aula</div>
@@ -172,7 +168,6 @@ function ModalPlanejarAula({ dataInicial, turmas, onSalvar, onClose }) {
         </div>
       )}
 
-      {/* Step 4: Data + Hora */}
       {aulaId && (
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
           <div className="modal-field">
@@ -194,7 +189,7 @@ function ModalPlanejarAula({ dataInicial, turmas, onSalvar, onClose }) {
       )}
 
       <div style={{ fontSize:'0.75rem', color:'var(--teal)', padding:'4px 0', display:'flex', alignItems:'center', gap:5 }}>
-        <ClockCountdown size={13} /> Esta aula aparecerá no calendário e contribuirá para o cálculo de aderência.
+        <ClockCountdown size={13} /> Esta aula aparecerá no calendário como <strong>planejada</strong>. Marque como "dada" quando a aula acontecer.
       </div>
       <div className="modal-footer">
         <button className="btn-ghost" onClick={onClose}>Cancelar</button>
@@ -215,11 +210,12 @@ export function Calendario() {
   const [month,   setMonth]   = useState(today.getMonth());
   const [selected, setSelected] = useState(fmt(today));
   const [eventos, setEventos] = useState([]);
-  const [planejadas, setPlanejadas] = useState([]);
+  const [planejadas, setPlanejadas] = useState([]);  // inclui status: 'planejada' | 'dada'
   const [filtro, setFiltro] = useState('tudo'); // tudo | planejadas | dadas | eventos
   const [showModalEvt, setShowModalEvt] = useState(false);
   const [showModalPlan, setShowModalPlan] = useState(false);
   const [showFeriados, setShowFeriados] = useState(false);
+  const [marcando, setMarcando] = useState(null); // id sendo marcado
   const [form, setForm] = useState({ titulo:'', hora:'18:40', turmaId:'', tipo:'aula', obs:'' });
 
   useEffect(() => {
@@ -235,12 +231,27 @@ export function Calendario() {
   const prevMonth = () => { if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); };
   const nextMonth = () => { if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); };
 
+  // ── Marcar aula como dada (ou voltar para planejada) ──────────
+  const toggleStatus = async (item) => {
+    const novoStatus = item.status === 'dada' ? 'planejada' : 'dada';
+    const dataDada = novoStatus === 'dada' ? fmt(today) : null;
+    setMarcando(item.id);
+    const { error } = await supabase
+      .from('aulas_planejadas')
+      .update({ status: novoStatus, data_dada: dataDada })
+      .eq('id', item.id);
+    if (!error) {
+      setPlanejadas(p => p.map(x => x.id === item.id ? { ...x, status: novoStatus, data_dada: dataDada } : x));
+    }
+    setMarcando(null);
+  };
+
   // Por dia: eventos + planejadas (como itens unificados)
   const itemsOnDay = (d) => {
     const evts = eventos.filter(e => e.data === d).map(e => ({ ...e, _tipo:'evento' }));
     const plans = planejadas.filter(p => p.data_planejada === d).map(p => ({
       ...p,
-      _tipo: 'planejada',
+      _tipo: p.status === 'dada' ? 'dada' : 'planejada',
       titulo: p.aula_titulo,
       turmaLabel: turmas.find(t => t.id === p.turma_id)?.label || '',
       turma: turmas.find(t => t.id === p.turma_id),
@@ -253,17 +264,15 @@ export function Calendario() {
   const itensFiltrados = todosItens.filter(it => {
     if (filtro === 'tudo') return true;
     if (filtro === 'planejadas') return it._tipo === 'planejada';
-    if (filtro === 'eventos') return it._tipo === 'evento';
+    if (filtro === 'dadas')     return it._tipo === 'dada';
+    if (filtro === 'eventos')   return it._tipo === 'evento';
     return true;
   });
 
-  // Tem itens em algum dia (para dots no calendário)
-  const hasItemDay = (d) => {
-    if (filtro === 'tudo') return itemsOnDay(d).length > 0;
-    if (filtro === 'planejadas') return planejadas.some(p => p.data_planejada === d);
-    if (filtro === 'eventos') return eventos.some(e => e.data === d);
-    return itemsOnDay(d).length > 0;
-  };
+  // Dots no calendário
+  const hasPlanejadaDay = (d) => planejadas.some(p => p.data_planejada === d && p.status !== 'dada');
+  const hasDadaDay      = (d) => planejadas.some(p => p.data_planejada === d && p.status === 'dada');
+  const hasEventoDay    = (d) => eventos.some(e => e.data === d);
 
   const salvarEvento = async () => {
     if (!form.titulo.trim()) return;
@@ -297,13 +306,21 @@ export function Calendario() {
   const dayName = () => DIAS_SEMANA[new Date(selected+'T12:00:00').getDay()];
   const feriadoSel = feriadosMap[selected];
 
+  // Contagem geral para o mês visível
+  const aulasDoMes = planejadas.filter(p => {
+    const [y, m] = p.data_planejada.split('-').map(Number);
+    return y === year && m === month + 1;
+  });
+  const dadasDoMes     = aulasDoMes.filter(p => p.status === 'dada').length;
+  const planejDoMes    = aulasDoMes.filter(p => p.status !== 'dada').length;
+
   return (
     <div className="anim-up">
       {/* Header */}
       <div className="page-header">
         <div>
           <div className="page-title">Calendário</div>
-          <div className="page-subtitle">Eventos, aulas planejadas e feriados</div>
+          <div className="page-subtitle">Eventos, aulas planejadas e aulas dadas</div>
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           {/* Filtro visual */}
@@ -311,7 +328,8 @@ export function Calendario() {
             {[
               { val:'tudo',       label:'Tudo',       icon:'📅' },
               { val:'planejadas', label:'Planejadas',  icon:'🕐' },
-              { val:'eventos',    label:'Eventos',     icon:'✅' },
+              { val:'dadas',      label:'Dadas',       icon:'✅' },
+              { val:'eventos',    label:'Eventos',     icon:'📌' },
             ].map(f => (
               <button key={f.val} onClick={() => setFiltro(f.val)}
                 style={{ padding:'6px 12px', border:'none', background: filtro===f.val ? 'var(--accent)' : 'transparent', color: filtro===f.val ? 'white' : 'var(--text2)', cursor:'pointer', fontFamily:'inherit', fontSize:'0.78rem', fontWeight: filtro===f.val ? 700 : 400, transition:'all 0.15s' }}>
@@ -320,10 +338,28 @@ export function Calendario() {
             ))}
           </div>
           <button className="btn-ghost" onClick={() => setShowFeriados(true)}>🎉 Feriados</button>
-          <button className="btn-ghost" onClick={() => { setShowModalPlan(true); }}>📚 Planejar aula</button>
+          <button className="btn-ghost" onClick={() => setShowModalPlan(true)}>📚 Planejar aula</button>
           <button className="btn-primary" onClick={() => setShowModalEvt(true)}>+ Evento</button>
         </div>
       </div>
+
+      {/* Resumo do mês */}
+      {(dadasDoMes > 0 || planejDoMes > 0) && (
+        <div style={{ display:'flex', gap:12, marginBottom:20, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.25)', borderRadius:10, padding:'8px 14px' }}>
+            <CheckCircle size={16} color="var(--green)" weight="fill" />
+            <span style={{ fontSize:'0.82rem', color:'var(--text2)' }}>
+              <strong style={{ color:'var(--green)' }}>{dadasDoMes}</strong> aula{dadasDoMes !== 1 ? 's' : ''} dada{dadasDoMes !== 1 ? 's' : ''} em {MESES[month]}
+            </span>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(20,184,166,0.08)', border:'1px solid rgba(20,184,166,0.25)', borderRadius:10, padding:'8px 14px' }}>
+            <ClockCountdown size={16} color="var(--teal)" />
+            <span style={{ fontSize:'0.82rem', color:'var(--text2)' }}>
+              <strong style={{ color:'var(--teal)' }}>{planejDoMes}</strong> planejada{planejDoMes !== 1 ? 's' : ''} pendente{planejDoMes !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Alerta feriados */}
       {aulasAfetadas.length > 0 && (
@@ -353,8 +389,9 @@ export function Calendario() {
             {DIAS_SEMANA.map(d => <div key={d} className="cal-day-header">{d}</div>)}
             {days.map((d, i) => {
               const key = fmt(d.date);
-              const hasEvt = eventos.some(e => e.data === key);
-              const hasPlan = planejadas.some(p => p.data_planejada === key);
+              const hasEvt  = hasEventoDay(key);
+              const hasPlan = hasPlanejadaDay(key);
+              const hasDada = hasDadaDay(key);
               const isFeriado = !!feriadosMap[key];
               const isToday = key === fmt(today);
               const isSel = key === selected;
@@ -366,11 +403,11 @@ export function Calendario() {
                   title={isFeriado ? feriadosMap[key].nome : undefined}
                 >
                   {d.date.getDate()}
-                  {/* Dots indicadores */}
                   {d.cur && (
                     <div style={{ position:'absolute', bottom:2, left:'50%', transform:'translateX(-50%)', display:'flex', gap:2 }}>
-                      {hasEvt && <span style={{ width:4, height:4, borderRadius:'50%', background:'var(--accent-light)', display:'block' }} />}
+                      {hasEvt  && <span style={{ width:4, height:4, borderRadius:'50%', background:'var(--accent-light)', display:'block' }} />}
                       {hasPlan && <span style={{ width:4, height:4, borderRadius:'50%', background:'var(--teal)', display:'block' }} />}
+                      {hasDada && <span style={{ width:4, height:4, borderRadius:'50%', background:'var(--green)', display:'block' }} />}
                       {isFeriado && <span style={{ width:4, height:4, borderRadius:'50%', background:'var(--amber)', display:'block' }} />}
                     </div>
                   )}
@@ -378,9 +415,11 @@ export function Calendario() {
               );
             })}
           </div>
+          {/* Legenda */}
           <div style={{ marginTop:12, display:'flex', gap:14, fontSize:'0.7rem', color:'var(--text3)', flexWrap:'wrap' }}>
             <span style={{ display:'flex', alignItems:'center', gap:4 }}><span style={{ width:8,height:8,borderRadius:'50%',background:'var(--accent-light)',display:'inline-block' }} /> Evento</span>
-            <span style={{ display:'flex', alignItems:'center', gap:4 }}><span style={{ width:8,height:8,borderRadius:'50%',background:'var(--teal)',display:'inline-block' }} /> Aula planejada</span>
+            <span style={{ display:'flex', alignItems:'center', gap:4 }}><span style={{ width:8,height:8,borderRadius:'50%',background:'var(--teal)',display:'inline-block' }} /> Planejada</span>
+            <span style={{ display:'flex', alignItems:'center', gap:4 }}><span style={{ width:8,height:8,borderRadius:'50%',background:'var(--green)',display:'inline-block' }} /> Dada ✓</span>
             <span style={{ display:'flex', alignItems:'center', gap:4 }}><span style={{ width:8,height:8,borderRadius:'50%',background:'var(--amber)',display:'inline-block' }} /> Feriado</span>
           </div>
         </div>
@@ -400,27 +439,70 @@ export function Calendario() {
 
           {itensFiltrados.length === 0 ? (
             <div style={{ color:'var(--text3)', fontSize:'0.85rem', padding:'20px 0', textAlign:'center' }}>
-              {filtro==='planejadas' ? 'Nenhuma aula planejada.' : filtro==='eventos' ? 'Nenhum evento.' : 'Nenhum item neste dia.'}
+              {filtro==='planejadas' ? 'Nenhuma aula planejada neste dia.' : filtro==='dadas' ? 'Nenhuma aula dada neste dia.' : filtro==='eventos' ? 'Nenhum evento.' : 'Nenhum item neste dia.'}
             </div>
           ) : (
             <div className="cal-events">
               {itensFiltrados.map((it, idx) => {
-                if (it._tipo === 'planejada') {
-                  const cor = it.turma?.cor || 'var(--teal)';
+                if (it._tipo === 'planejada' || it._tipo === 'dada') {
+                  const isDada = it._tipo === 'dada';
+                  const cor = isDada ? 'var(--green)' : (it.turma?.cor || 'var(--teal)');
+                  const corHex = isDada ? '#22c55e' : (it.turma?.cor || '#14b8a6');
+                  const isMarcando = marcando === it.id;
                   return (
-                    <div key={it.id || idx} style={{ background:`${cor}10`, border:`1px solid ${cor}35`, borderLeft:`3px solid ${cor}`, borderRadius:10, padding:'10px 12px', display:'flex', alignItems:'center', gap:8 }}>
-                      <ClockCountdown size={14} color={cor} weight="fill" style={{ flexShrink:0 }} />
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontWeight:600, fontSize:'0.85rem', color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{it.titulo}</div>
-                        <div style={{ fontSize:'0.72rem', color:'var(--text3)', marginTop:2 }}>
-                          {it.turmaLabel} · {it.hora || '18:40'}
-                          {it.obs && <span> · {it.obs}</span>}
+                    <div key={it.id || idx} style={{ background:`${corHex}10`, border:`1px solid ${corHex}35`, borderLeft:`3px solid ${corHex}`, borderRadius:10, padding:'10px 12px' }}>
+                      {/* Cabeçalho do card */}
+                      <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                        {isDada
+                          ? <CheckCircle size={15} color="var(--green)" weight="fill" style={{ flexShrink:0, marginTop:1 }} />
+                          : <ClockCountdown size={15} color="var(--teal)" weight="fill" style={{ flexShrink:0, marginTop:1 }} />
+                        }
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontWeight:600, fontSize:'0.85rem', color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {it.titulo}
+                          </div>
+                          <div style={{ fontSize:'0.72rem', color:'var(--text3)', marginTop:2 }}>
+                            {it.turmaLabel} · {it.hora || '18:40'}
+                            {it.obs && <span> · {it.obs}</span>}
+                          </div>
+                          {/* Badge de status */}
+                          <div style={{ marginTop:5 }}>
+                            <span style={{
+                              display:'inline-block', fontSize:'0.65rem', fontWeight:700,
+                              padding:'2px 8px', borderRadius:99,
+                              background: isDada ? 'rgba(34,197,94,0.12)' : 'rgba(20,184,166,0.12)',
+                              color: isDada ? 'var(--green)' : 'var(--teal)',
+                              border: `1px solid ${isDada ? 'rgba(34,197,94,0.3)' : 'rgba(20,184,166,0.3)'}`,
+                            }}>
+                              {isDada ? '✓ Dada' : '⏳ Planejada'}
+                            </span>
+                          </div>
                         </div>
+                        <button onClick={() => excluirPlanejada(it.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', padding:'0 3px', fontSize:14, flexShrink:0 }} onMouseEnter={e=>e.currentTarget.style.color='var(--red)'} onMouseLeave={e=>e.currentTarget.style.color='var(--text3)'}>×</button>
                       </div>
-                      <button onClick={() => excluirPlanejada(it.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', padding:'0 3px', fontSize:14 }} onMouseEnter={e=>e.currentTarget.style.color='var(--red)'} onMouseLeave={e=>e.currentTarget.style.color='var(--text3)'}>×</button>
+
+                      {/* Botão: marcar como dada / voltar para planejada */}
+                      <button
+                        onClick={() => toggleStatus(it)}
+                        disabled={isMarcando}
+                        style={{
+                          marginTop:8, width:'100%', padding:'5px 0',
+                          border:`1px solid ${isDada ? 'rgba(20,184,166,0.35)' : 'rgba(34,197,94,0.35)'}`,
+                          borderRadius:7, cursor: isMarcando ? 'wait' : 'pointer',
+                          background: isDada ? 'rgba(20,184,166,0.07)' : 'rgba(34,197,94,0.07)',
+                          color: isDada ? 'var(--teal)' : 'var(--green)',
+                          fontSize:'0.73rem', fontWeight:600, fontFamily:'inherit',
+                          transition:'all 0.15s',
+                        }}
+                        onMouseEnter={e=>{ if(!isMarcando) e.currentTarget.style.opacity='0.75'; }}
+                        onMouseLeave={e=>{ e.currentTarget.style.opacity='1'; }}
+                      >
+                        {isMarcando ? '…' : isDada ? '↩ Voltar para planejada' : '✓ Marcar como dada'}
+                      </button>
                     </div>
                   );
                 }
+                // Evento normal
                 return (
                   <div key={it.id || idx} className={`cal-event turma-${it.turmaEvt}`}>
                     <div className="cal-event-title">{it.titulo}</div>

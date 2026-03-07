@@ -25,3 +25,11 @@ CREATE POLICY "notas_do_professor" ON notas_alunos
   WITH CHECK (
     turma_id IN (SELECT id FROM turmas WHERE professor_id = auth.uid())
   );
+
+-- ────────────────────────────────────────────────────────────
+-- CAMPOS EXTRAS NA TABELA ATIVIDADES
+-- Execute também no SQL Editor do Supabase
+-- ────────────────────────────────────────────────────────────
+ALTER TABLE atividades 
+  ADD COLUMN IF NOT EXISTS aviso_dias INTEGER DEFAULT 3,
+  ADD COLUMN IF NOT EXISTS notificado BOOLEAN DEFAULT false;

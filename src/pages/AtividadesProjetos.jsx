@@ -47,7 +47,7 @@ const VITRINE = {
   tipo: 'projeto',
   titulo: '🎨 Vitrine UX/UI na Prática',
   descricao: 'Desafio extra que integra DCU e Design Thinking: os alunos analisam um app real, propõem um redesign no Figma e publicam um estudo de caso no LinkedIn. Vale 1 ponto extra.',
-  imagem: '',
+  imagem_url: '',
   link: '',
   turmas: [],
   prazo: '',
@@ -334,7 +334,7 @@ const TIPOS = [
 ];
 
 const DEFAULT_FORM = {
-  titulo: '', tipo: 'atividade', descricao: '', imagem: '', link: '',
+  titulo: '', tipo: 'atividade', descricao: '', imagem_url: '', link: '',
   turmas: [], prazo: '', aviso_dias: 3, notificado: false,
 };
 
@@ -440,9 +440,9 @@ function DetailModal({ item, onClose, onEdit, onDelete, buildMailto }) {
 
   return (
     <Modal title="" onClose={onClose} fullscreen>
-      {item.imagem ? (
+      {item.imagem_url ? (
         <div style={{ margin: '0 -26px 22px', height: 200, overflow: 'hidden' }}>
-          <img src={item.imagem} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={item.imagem_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
       ) : (
         <div style={{ margin: '0 -26px 22px', height: 6, background: `linear-gradient(90deg, ${tp.cor}cc, ${tp.cor}33)` }} />
@@ -579,7 +579,10 @@ export function AtividadesProjetos() {
     return `mailto:${EMAIL_NOTIF}?subject=${subject}&body=${body}`;
   };
 
-  const marcarNotificado = (id) => setItems(its => its.map(i => i.id === id ? { ...i, notificado: true } : i));
+  const marcarNotificado = async (id) => {
+    setItems(its => its.map(i => i.id === id ? { ...i, notificado: true } : i));
+    await supabase.from('atividades').update({ notificado: true }).eq('id', id);
+  };
 
   const viewItem = viewId ? items.find(i => i.id === viewId) : null;
   const tipoInfo = (t) => TIPOS.find(x => x.value === t) || TIPOS[0];
@@ -708,7 +711,7 @@ export function AtividadesProjetos() {
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = urgente ? 'var(--red-border)' : vencido ? 'rgba(120,100,150,0.3)' : 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
             >
               <div style={{ height: 4, background: `linear-gradient(90deg, ${tp.cor}, ${tp.cor}44)`, flexShrink: 0 }} />
-              {item.imagem && <img src={item.imagem} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block', flexShrink: 0 }} />}
+              {item.imagem_url && <img src={item.imagem_url} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block', flexShrink: 0 }} />}
               <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.7rem', background: `${tp.cor}22`, color: tp.cor, border: `1px solid ${tp.cor}44`, borderRadius: 99, padding: '2px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{tp.label}</span>
@@ -786,7 +789,7 @@ export function AtividadesProjetos() {
               </div>
               <div className="modal-field">
                 <div className="modal-label">URL da imagem (opcional)</div>
-                <input className="modal-input" placeholder="https://..." value={form.imagem} onChange={e => setForm(f => ({ ...f, imagem: e.target.value }))} />
+                <input className="modal-input" placeholder="https://..." value={form.imagem_url} onChange={e => setForm(f => ({ ...f, imagem_url: e.target.value }))} />
               </div>
             </div>
             <div className="modal-field">
