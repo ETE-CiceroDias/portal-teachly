@@ -438,23 +438,38 @@ export const EstadoAulas = {
   async save(turmaId, disciplinaKey, aulaId, updates) {
     const user = await Auth.getUser();
     if (!user) return;
-    // Garante que só campos válidos chegam ao banco
     const allowed = ['done','problems','nota_prof','data_aula','slide_url',
                      'teoria','pratica','codealong','recurso','conexao','obs','plano_b'];
     const safe = Object.fromEntries(
       Object.entries(updates).filter(([k]) => allowed.includes(k))
     );
-    const { error } = await supabase
+    const ts = new Date().toISOString();
+
+    // Tenta UPDATE primeiro (registro já existe)
+    const { data: updated, error: errUp } = await supabase
       .from('estado_aulas')
-      .upsert({
-        professor_id:   user.id,
-        turma_id:       turmaId,
-        disciplina_key: disciplinaKey,
-        aula_id:        aulaId,
-        atualizado_em:  new Date().toISOString(),
-        ...safe,
-      }, { onConflict: 'professor_id,turma_id,disciplina_key,aula_id' });
-    if (error) { console.error('EstadoAulas.save error:', error); throw error; }
+      .update({ atualizado_em: ts, ...safe })
+      .eq('professor_id',   user.id)
+      .eq('turma_id',       turmaId)
+      .eq('disciplina_key', disciplinaKey)
+      .eq('aula_id',        aulaId)
+      .select('id');
+    if (errUp) { console.error('EstadoAulas.update error:', errUp); throw errUp; }
+
+    // Se não existia, insere
+    if (!updated || updated.length === 0) {
+      const { error: errIns } = await supabase
+        .from('estado_aulas')
+        .insert({
+          professor_id:   user.id,
+          turma_id:       turmaId,
+          disciplina_key: disciplinaKey,
+          aula_id:        aulaId,
+          atualizado_em:  ts,
+          ...safe,
+        });
+      if (errIns) { console.error('EstadoAulas.insert error:', errIns); throw errIns; }
+    }
   },
 };
 
