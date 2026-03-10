@@ -31,6 +31,7 @@ function AppShell({ user }) {
 
   const [state,       setState]       = useState({});
   const [activeTab,   setActiveTab]   = useState('dashboard');
+  const [prevTab,     setPrevTab]     = useState('dashboard');
   const [activeTurma, setActiveTurma] = useState(null); // ID do banco
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setThemeState] = useState(() => initTheme());
@@ -105,7 +106,7 @@ function AppShell({ user }) {
 
       case 'disciplinas': return <GerenciarDiscs />;
       case 'admin':       return <Admin />;
-      case 'anotacoes':   return <Anotacoes />;
+      case 'anotacoes':   return <Anotacoes onBack={() => setActiveTab(prevTab || 'dashboard')} />;
       default:
         // Disciplina pelo ID ou key
         const disc = discsAtivas.find(d => d.id === activeTab || d.key === activeTab);
@@ -152,7 +153,7 @@ function AppShell({ user }) {
       <div className="blob-tr"  aria-hidden="true" />
       <Sidebar
         activeTab={activeTab}
-        onTabChange={t => { setActiveTab(t); setSidebarOpen(false); }}
+        onTabChange={t => { setPrevTab(activeTab); setActiveTab(t); setSidebarOpen(false); }}
         activeTurmaId={activeTurma}
         onTurmaChange={id => { setActiveTurma(id); setActiveTab('dashboard'); }}
         onLogout={handleLogout}

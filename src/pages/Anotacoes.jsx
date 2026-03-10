@@ -192,7 +192,7 @@ function EditorFullscreen({ nota, turmas, onSave, onClose }) {
   );
 }
 
-export function Anotacoes() {
+export function Anotacoes({ onBack }) {
   const { turmas } = useOrg();
   const [notas,         setNotas]         = useState([]);
   const [loading,       setLoading]       = useState(true);
@@ -260,7 +260,7 @@ export function Anotacoes() {
   if (loading) return <div style={{ color:'var(--text3)', padding:32 }}>Carregando...</div>;
 
   if (editando) {
-    return <EditorFullscreen nota={editando} turmas={turmas} onSave={async (nota) => { await salvar(nota); setEditando(p => ({...p,...nota})); }} onClose={() => setEditando(null)} />;
+    return <EditorFullscreen nota={editando} turmas={turmas} onSave={async (nota) => { await salvar(nota); setEditando(p => ({...p,...nota})); }} onClose={() => { setEditando(null); if (onBack) onBack(); }} />;
   }
 
   return (
