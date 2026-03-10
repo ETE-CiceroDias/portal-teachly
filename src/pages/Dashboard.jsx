@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { EmptyState } from '../components/EmptyState.jsx';
 import { aulaId } from '../store/storage.js';
+import { COURSES } from '../data/courses.js';
 import { useOrg } from '../store/OrgContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import {
@@ -60,7 +61,8 @@ export function Dashboard({ state, onNavigate }) {
           (bloco.aulas || []).forEach(aula => {
             if (aula.id === 'NOTA') return;
             totalAulas++;
-            const id = aulaId(disc.code || disc.key, turmaKey, aula);
+            const cKey = (Object.values(COURSES).find(c => c.code === disc.code || c.key === disc.key))?.key || disc.key;
+            const id = aulaId(cKey, turmaKey, aula);
             const st = state[id] || {};
             if (st.done) doneAulas++;
             if ((st.problems || []).length > 0) problems++;
@@ -92,7 +94,8 @@ export function Dashboard({ state, onNavigate }) {
         b.aulas.forEach(a => { if (a.id === p.aula_id || a.titulo === p.aula_titulo) aulaObj = a; });
       });
       if (!aulaObj) return;
-      const id = aulaId(disc.code || disc.key, turmaKey, aulaObj);
+      const cKey2 = (Object.values(COURSES).find(c => c.code === disc.code || c.key === disc.key))?.key || disc.key;
+      const id = aulaId(cKey2, turmaKey, aulaObj);
       if (state[id]?.done) dadas++;
     });
     const pct = Math.round(dadas / passadas.length * 100);
@@ -111,7 +114,8 @@ export function Dashboard({ state, onNavigate }) {
           (b.aulas || []).forEach(a => {
             if (a.id === 'NOTA') return;
             total++;
-            const id = aulaId(disc.code || disc.key, turmaKey, a);
+            const cKey3 = (Object.values(COURSES).find(c => c.code === disc.code || c.key === disc.key))?.key || disc.key;
+            const id = aulaId(cKey3, turmaKey, a);
             const st = state[id] || {};
             if (st.done) done++;
             if ((st.problems || []).length > 0) prob++;
@@ -133,7 +137,8 @@ export function Dashboard({ state, onNavigate }) {
         (disc.blocos || []).forEach(b => {
           (b.aulas || []).forEach(a => {
             if (a.id === 'NOTA') return;
-            const id = aulaId(disc.code || disc.key, turmaKey, a);
+            const cKey4 = (Object.values(COURSES).find(c => c.code === disc.code || c.key === disc.key))?.key || disc.key;
+            const id = aulaId(cKey4, turmaKey, a);
             const st = state[id] || {};
             (st.problems || []).forEach(p => result.push({ text: p, aula: a.titulo?.split('\n')[0] || '', course: disc.label, turma: turma.label }));
           });

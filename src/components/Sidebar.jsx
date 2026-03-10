@@ -27,9 +27,9 @@ const NAV_GERAL = [
 ];
 
 // Nav por turma — aparece dentro da turma expandida
+// Frequência removida: registrada no SIEP
 const NAV_TURMA = [
-  { tab:'grupos',     Icon: UsersThree,   label:'Grupos'              },
-  { tab:'frequencia', Icon: ClipboardText,label:'Frequência'          },
+  { tab:'grupos', Icon: UsersThree, label:'Grupos' },
 ];
 
 export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, onLogout, state, theme, onToggleTheme, open, onClose }) {
@@ -220,5 +220,3 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
     </>
   );
 }
-
-

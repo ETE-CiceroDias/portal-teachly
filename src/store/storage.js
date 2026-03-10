@@ -403,7 +403,9 @@ export const DesafioUX = {
 
 export const EstadoAulas = {
 
-  async load(turmaId, turmaKey = '') {
+  // Carrega todo o estado de aulas de uma turma.
+  // Retorna um objeto keyed pela stateKey completa: 'dcu_mod1a_AULA_01'
+  async load(turmaId) {
     const user = await Auth.getUser();
     if (!user) return {};
     const { data, error } = await supabase
@@ -411,15 +413,12 @@ export const EstadoAulas = {
       .select('*')
       .eq('professor_id', user.id)
       .eq('turma_id', turmaId);
-    if (error) { console.error(error); return {}; }
-    // Reconstrói a chave no formato que o app usa: 'dcu_mod1a_AULA_01'
-    return data.reduce((acc, row) => {
-      const key = turmaKey
-        ? `${row.disciplina_key}_${turmaKey}_${row.aula_id}`
-        : `${row.disciplina_key}_${row.aula_id}`;
-      acc[key] = {
-        done:      row.done,
-        problems:  row.problems,
+    if (error) { console.error('EstadoAulas.load error:', error); return {}; }
+    return (data || []).reduce((acc, row) => {
+      if (!row.state_key) return acc; // ignora linhas antigas sem state_key
+      acc[row.state_key] = {
+        done:      row.done      ?? false,
+        problems:  row.problems  ?? [],
         nota_prof: row.nota_prof ?? '',
         data_aula: row.data_aula ?? '',
         slide_url: row.slide_url ?? '',
@@ -428,43 +427,46 @@ export const EstadoAulas = {
         codealong: row.codealong ?? '',
         recurso:   row.recurso   ?? '',
         conexao:   row.conexao   ?? '',
-        obs:       row.obs       ?? '',
+        obs_prof:  row.obs_prof  ?? '',
         plano_b:   row.plano_b   ?? '',
       };
       return acc;
     }, {});
   },
 
-  async save(turmaId, disciplinaKey, aulaId, updates) {
+  // Salva o estado de uma aula usando a stateKey completa como identificador.
+  // stateKey = id completo do estado no app, ex: 'dcu_mod1a_AULA_01'
+  async save(turmaId, stateKey, updates) {
     const user = await Auth.getUser();
     if (!user) return;
     const allowed = ['done','problems','nota_prof','data_aula','slide_url',
-                     'teoria','pratica','codealong','recurso','conexao','obs','plano_b'];
+                     'teoria','pratica','codealong','recurso','conexao','obs_prof','plano_b'];
     const safe = Object.fromEntries(
       Object.entries(updates).filter(([k]) => allowed.includes(k))
     );
     const ts = new Date().toISOString();
 
-    // Tenta UPDATE primeiro (registro já existe)
-    const { data: updated, error: errUp } = await supabase
+    // Tenta UPDATE primeiro
+    const { data: upd, error: errUp } = await supabase
       .from('estado_aulas')
       .update({ atualizado_em: ts, ...safe })
-      .eq('professor_id',   user.id)
-      .eq('turma_id',       turmaId)
-      .eq('disciplina_key', disciplinaKey)
-      .eq('aula_id',        aulaId)
+      .eq('professor_id', user.id)
+      .eq('turma_id',     turmaId)
+      .eq('state_key',    stateKey)
       .select('id');
     if (errUp) { console.error('EstadoAulas.update error:', errUp); throw errUp; }
 
     // Se não existia, insere
-    if (!updated || updated.length === 0) {
+    if (!upd || upd.length === 0) {
+      const discKey = stateKey.split('_')[0] || '';
       const { error: errIns } = await supabase
         .from('estado_aulas')
         .insert({
           professor_id:   user.id,
           turma_id:       turmaId,
-          disciplina_key: disciplinaKey,
-          aula_id:        aulaId,
+          state_key:      stateKey,
+          disciplina_key: discKey,
+          aula_id:        stateKey,
           atualizado_em:  ts,
           ...safe,
         });

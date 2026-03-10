@@ -49,35 +49,28 @@ function AppShell({ user }) {
 
   useEffect(() => {
     if (!user || !activeTurma) { setState({}); return; }
-    const turma = turmas.find(t => t.id === activeTurma);
-    const tKey  = turma?.key || turma?.id || '';
-    EstadoAulas.load(activeTurma, tKey).then(s => setState(s));
+    // Carrega estado usando só o turmaId — sem tentar remontar chave
+    EstadoAulas.load(activeTurma).then(s => setState(s));
   }, [user, activeTurma, turmas]);
 
   const persist = useCallback((updater) => {
     setState(prev => typeof updater === 'function' ? updater(prev) : updater);
   }, []);
 
+  // id = chave completa do estado, ex: 'dcu_mod1a_AULA_01'
+  // Passamos ela inteira para o banco como state_key — sem split frágil
   const handleToggle = useCallback((id) => {
-    const parts = id.split('_');
-    const disciplinaKey = parts[0];
-    const aulaKey = parts.slice(2).join('_');
     persist(prev => {
       const cur  = prev[id] || {};
       const done = !cur.done;
-      // activeTurma é o UUID correto para o banco
-      EstadoAulas.save(activeTurma, disciplinaKey, aulaKey, { done });
+      EstadoAulas.save(activeTurma, id, { done });
       return { ...prev, [id]: { ...cur, done } };
     });
   }, [persist, activeTurma]);
 
   const handleSave = useCallback((id, form) => {
-    const parts = id.split('_');
-    const disciplinaKey = parts[0];
-    const aulaKey = parts.slice(2).join('_');
     persist(prev => {
-      // activeTurma é o UUID correto para o banco
-      EstadoAulas.save(activeTurma, disciplinaKey, aulaKey, form);
+      EstadoAulas.save(activeTurma, id, form);
       return { ...prev, [id]: { ...(prev[id] || {}), ...form } };
     });
   }, [persist, activeTurma]);
