@@ -126,7 +126,7 @@ function EditorFullscreen({ nota, turmas, onSave, onClose }) {
     <div style={{ position:'fixed', inset:0, zIndex:200, background:'var(--bg)', display:'flex', flexDirection:'column' }}>
       {/* Toolbar */}
       <div style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 20px', borderBottom:`2px solid ${cor}40`, background:`linear-gradient(90deg,${cor}0d,transparent)`, flexWrap:'wrap' }}>
-        <button onClick={() => { clearTimeout(autoSaveRef.current); save(); onClose(); }}
+        <button onClick={async () => { clearTimeout(autoSaveRef.current); try { await save(); } catch(e) { console.error(e); } finally { onClose(); } }}
           style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)', padding:'5px 12px', fontSize:'0.83rem', fontFamily:'inherit', fontWeight:600 }}>
           <ArrowLeft size={15} /> Voltar
         </button>
