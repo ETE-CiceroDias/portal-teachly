@@ -596,25 +596,49 @@ a:hover { text-decoration: underline; }
   align-items: center;
   gap: 12px;
   padding: 8px 28px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid transparent;
   position: sticky;
   top: 0;
   z-index: 90;
-  background: rgba(10, 4, 20, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: transparent;
 }
 .desktop-topbar-spacer { flex: 1; }
 
 .sidebar.collapsed {
-  width: 0 !important;
-  min-width: 0 !important;
-  overflow: visible;
-  border-right: none;
+  width: 64px !important;
+  min-width: 64px !important;
+  overflow: hidden;
 }
-.sidebar.collapsed > *:not(.sidebar-collapse-btn) {
-  opacity: 0;
-  pointer-events: none;
+.sidebar.collapsed .sidebar-title,
+.sidebar.collapsed .sidebar-subtitle,
+.sidebar.collapsed .nav-section-label,
+.sidebar.collapsed .nav-item span:not(.nav-icon),
+.sidebar.collapsed .turma-subnav,
+.sidebar.collapsed .sidebar-prof-name,
+.sidebar.collapsed .sidebar-prof-role,
+.sidebar.collapsed [data-caret] {
+  display: none !important;
+}
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 10px 0;
+}
+.sidebar.collapsed .nav-icon {
+  margin: 0;
+}
+.sidebar.collapsed .sidebar-brand {
+  justify-content: center;
+  padding: 16px 0;
+}
+.sidebar.collapsed .sidebar-gem {
+  margin: 0;
+}
+.sidebar.collapsed .sidebar-profile-btn {
+  justify-content: center;
+  padding: 10px 0;
+}
+.sidebar.collapsed .sidebar-avatar {
+  margin: 0;
 }
 
 /* ═══════════════════════════════════════════════════════

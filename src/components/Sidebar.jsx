@@ -143,8 +143,8 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
                   </span>
                   <span style={{ flex:1, textAlign:'left' }}>{t.modulo} · {t.label}</span>
                   {isExpanded
-                    ? <CaretDown size={12} weight="bold" style={{ flexShrink:0, opacity:0.5 }} />
-                    : <CaretRight size={12} weight="bold" style={{ flexShrink:0, opacity:0.35 }} />
+                    ? <CaretDown size={12} weight="bold" style={{ flexShrink:0, opacity:0.5 }} data-caret />
+                    : <CaretRight size={12} weight="bold" style={{ flexShrink:0, opacity:0.35 }} data-caret />
                   }
                 </button>
 
