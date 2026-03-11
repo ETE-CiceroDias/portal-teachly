@@ -1,5 +1,6 @@
 // pages/GerenciarDiscs.jsx — Disciplinas + Turmas
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
 import { COURSES } from '../data/courses.js';
@@ -10,13 +11,14 @@ import { ConfirmModal } from '../components/ConfirmModal.jsx';
 const CORES = ['#7c3aed','#a855f7','#c084fc','#e879f9','#60a5fa','#4ade80','#fbbf24','#fb923c','#f87171','#2dd4bf'];
 
 function Modal({ title, onClose, children }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth:480 }} onClick={e=>e.stopPropagation()}>
         <div className="modal-title">{title}</div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 function CorePicker({ value, onChange }) {

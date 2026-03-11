@@ -1,16 +1,16 @@
 // components/ConfirmModal.jsx — substitui confirm() do browser
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Trash, Question } from '@phosphor-icons/react';
 
 export function ConfirmModal({ title, message, confirmLabel = 'Confirmar', danger = true, onConfirm, onCancel }) {
-  // Fechar com Escape
   useEffect(() => {
     const handler = e => { if (e.key === 'Escape') onCancel(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onCancel]);
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
@@ -76,6 +76,7 @@ export function ConfirmModal({ title, message, confirmLabel = 'Confirmar', dange
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

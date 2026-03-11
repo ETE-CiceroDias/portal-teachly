@@ -1,5 +1,6 @@
 import { EmptyState } from '../components/EmptyState.jsx';
 // pages/Links.jsx
+import { createPortal } from 'react-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { ORG_ID } from '../data/ids.js';
@@ -41,13 +42,14 @@ const DEFAULT_LINKS = [
 ];
 
 function Modal({ title, onClose, children }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-title">{title}</div>
         {children}
       </div>
     </div>
+    , document.body
   );
 }
 

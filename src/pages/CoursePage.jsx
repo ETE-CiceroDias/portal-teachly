@@ -1,4 +1,5 @@
 // pages/CoursePage.jsx — conteúdo editável via Supabase
+import { createPortal } from 'react-dom';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
@@ -50,13 +51,14 @@ function EditableText({ value, onChange, placeholder, multiline, className, styl
 
 // ── Modal genérico ────────────────────────────────────────────
 function Modal({ title, onClose, children }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-title">{title}</div>
         {children}
       </div>
     </div>
+    , document.body
   );
 }
 

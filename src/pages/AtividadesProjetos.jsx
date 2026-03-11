@@ -1,6 +1,7 @@
 import { EmptyState } from '../components/EmptyState.jsx';
 import { ConfirmModal } from '../components/ConfirmModal.jsx';
 // pages/AtividadesProjetos.jsx
+import { createPortal } from 'react-dom';
 import { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { ORG_ID } from '../data/ids.js';
@@ -292,7 +293,7 @@ function VitrineContent({ config = {} }) {
 
 // ─── Modal genérico ─────────────────────────────────────────────
 function Modal({ title, onClose, children, wide, fullscreen }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal"
@@ -324,6 +325,7 @@ function Modal({ title, onClose, children, wide, fullscreen }) {
         )}
       </div>
     </div>
+    , document.body
   );
 }
 

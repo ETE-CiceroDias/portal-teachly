@@ -1,4 +1,5 @@
 // pages/Grupos.jsx — versão Supabase (bug fix: tela branca ao criar grupo)
+import { createPortal } from 'react-dom';
 import { useState, useEffect } from 'react';
 import { EmptyState } from '../components/EmptyState.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -7,13 +8,14 @@ import { TURMA_IDS, ORG_ID } from '../data/ids.js';
 import { UsersThree, Plus, PencilSimple, Trash, UserPlus } from '@phosphor-icons/react';
 
 function Modal({ title, onClose, children }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-title">{title}</div>
         {children}
       </div>
     </div>
+    , document.body
   );
 }
 

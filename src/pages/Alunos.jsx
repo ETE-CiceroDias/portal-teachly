@@ -1,4 +1,5 @@
 // pages/Alunos.jsx — Pool global de alunos + matricular em turmas
+import { createPortal } from 'react-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
@@ -19,13 +20,14 @@ const CORES = [
 ];
 
 function Modal({ title, onClose, children, wide }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={wide ? { maxWidth: 540, width: '95vw' } : {}} onClick={e => e.stopPropagation()}>
         <div className="modal-title">{title}</div>
         {children}
       </div>
     </div>
+    , document.body
   );
 }
 

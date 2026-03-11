@@ -1,4 +1,5 @@
 // pages/Notas.jsx — Lançamento de notas por turma, atividade e aluno
+import { createPortal } from 'react-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
@@ -158,7 +159,7 @@ function NotaDetailModal({ row, atividade, onClose, onSave }) {
     fontSize: '0.875rem', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
   };
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 480, width: '95vw' }} onClick={e => e.stopPropagation()}>
         <div className="modal-title">
@@ -245,6 +246,7 @@ function NotaDetailModal({ row, atividade, onClose, onSave }) {
         </div>
       </div>
     </div>
+    , document.body
   );
 }
 
