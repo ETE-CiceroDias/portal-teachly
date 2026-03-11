@@ -119,7 +119,7 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
           {NAV_GERAL.map(({ tab, Icon, label }) => (
             <button key={tab} className={`nav-item${activeTab===tab?' active':''}`}
               onClick={() => go(tab)}>
-              <span className="nav-icon"><Icon {...IC} /></span>{label}
+              <span className="nav-icon"><Icon {...IC} /></span><span className="nav-label">{label}</span>
             </button>
           ))}
 
@@ -141,7 +141,7 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
                   <span className="nav-icon">
                     <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background: t.cor, flexShrink:0 }} />
                   </span>
-                  <span style={{ flex:1, textAlign:'left' }}>{t.modulo} · {t.label}</span>
+                  <span className="nav-label" style={{ flex:1, textAlign:'left' }}>{t.modulo} · {t.label}</span>
                   {isExpanded
                     ? <CaretDown size={12} weight="bold" style={{ flexShrink:0, opacity:0.5 }} data-caret />
                     : <CaretRight size={12} weight="bold" style={{ flexShrink:0, opacity:0.35 }} data-caret />
@@ -156,7 +156,7 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
                       <button key={tab}
                         className={`nav-item nav-item-sub${activeTab===tab && activeTurmaId===t.id?' active':''}`}
                         onClick={() => { onTurmaChange(t.id); go(tab); }}>
-                        <span className="nav-icon"><Icon size={15} /></span>{label}
+                        <span className="nav-icon"><Icon size={15} /></span><span className="nav-label">{label}</span>
                       </button>
                     ))}
 
@@ -175,7 +175,7 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
                               <span className="nav-icon">
                                 <span style={{ display:'inline-block', width:7, height:7, borderRadius:'50%', background:disc.cor }} />
                               </span>
-                              {disc.label}
+                              <span className="nav-label">{disc.label}</span>
                               {stats?.problems > 0 && <span className="nav-badge">{stats.problems}</span>}
                             </button>
                           );

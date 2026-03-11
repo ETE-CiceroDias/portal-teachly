@@ -460,6 +460,8 @@ a:hover { text-decoration: underline; }
 .nav-item-sub.active { box-shadow: inset 2px 0 0 var(--accent); }
 
 .nav-icon { font-size: 16px; width: 20px; flex-shrink: 0; text-align: center; }
+.nav-label { flex: 1; }
+.sidebar.collapsed .nav-label { display: none !important; }
 .nav-badge {
   margin-left: auto;
   background: var(--red-bg);
@@ -560,9 +562,8 @@ a:hover { text-decoration: underline; }
 /* ── Botão colapsar sidebar — aba na borda direita ── */
 .sidebar-collapse-btn {
   position: absolute;
-  top: 50%;
+  top: 20px;
   right: -14px;
-  transform: translateY(-50%);
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -570,7 +571,7 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--border);
   cursor: pointer;
   color: var(--text3);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -604,44 +605,36 @@ a:hover { text-decoration: underline; }
   width: 64px !important;
   min-width: 64px !important;
 }
+
+/* Esconde todo texto e labels no modo colapsado */
 .sidebar.collapsed .sidebar-title,
 .sidebar.collapsed .sidebar-subtitle,
 .sidebar.collapsed .nav-section-label,
 .sidebar.collapsed .turma-subnav,
 .sidebar.collapsed .sidebar-prof-name,
-.sidebar.collapsed .sidebar-prof-role {
-  opacity: 0;
-  width: 0;
-  overflow: hidden;
+.sidebar.collapsed .sidebar-prof-role,
+.sidebar.collapsed .nav-item > span:not(.nav-icon),
+.sidebar.collapsed .nav-item > *:not(.nav-icon):not(span.nav-icon) {
   display: none !important;
 }
+
+/* Centraliza ícones */
 .sidebar.collapsed .nav-item {
   justify-content: center;
   padding: 10px 0;
-  overflow: hidden;
-}
-/* Esconde texto dos nav-items mas mantém ícone */
-.sidebar.collapsed .nav-item > *:not(.nav-icon) {
-  display: none !important;
-}
-.sidebar.collapsed .nav-icon {
-  margin: 0 auto;
+  gap: 0;
 }
 .sidebar.collapsed .sidebar-brand {
   justify-content: center;
-  padding: 16px 0;
+  padding: 20px 0;
   gap: 0;
-  overflow: hidden;
 }
 .sidebar.collapsed .sidebar-profile-btn {
   justify-content: center;
   padding: 10px 0;
   gap: 0;
-  overflow: hidden;
 }
-.sidebar.collapsed .sidebar-avatar {
-  margin: 0 auto;
-}
+
 
 /* ═══════════════════════════════════════════════════════
    PAGE HEADER
