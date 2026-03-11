@@ -403,8 +403,26 @@ export const DesafioUX = {
 
 export const EstadoAulas = {
 
-  // Carrega todo o estado de aulas de uma turma.
-  // Retorna um objeto keyed pela stateKey completa: 'dcu_mod1a_AULA_01'
+  // Mapeia uma linha do banco para o objeto de state
+  _rowToState(row) {
+    return {
+      done:          row.done          ?? false,
+      problems:      row.problems      ?? [],
+      nota_prof:     row.nota_prof     ?? '',
+      data_aula:     row.data_aula     ?? '',
+      data_aula_fim: row.data_aula_fim ?? '',
+      slide_url:     row.slide_url     ?? '',
+      teoria:        row.teoria        ?? '',
+      pratica:       row.pratica       ?? '',
+      codealong:     row.codealong     ?? '',
+      recurso:       row.recurso       ?? '',
+      conexao:       row.conexao       ?? '',
+      obs_prof:      row.obs_prof      ?? '',
+      plano_b:       row.plano_b       ?? '',
+    };
+  },
+
+  // Carrega estado de uma turma específica
   async load(turmaId) {
     const user = await Auth.getUser();
     if (!user) return {};
@@ -415,21 +433,24 @@ export const EstadoAulas = {
       .eq('turma_id', turmaId);
     if (error) { console.error('EstadoAulas.load error:', error); return {}; }
     return (data || []).reduce((acc, row) => {
-      if (!row.state_key) return acc; // ignora linhas antigas sem state_key
-      acc[row.state_key] = {
-        done:      row.done      ?? false,
-        problems:  row.problems  ?? [],
-        nota_prof: row.nota_prof ?? '',
-        data_aula: row.data_aula ?? '',
-        slide_url: row.slide_url ?? '',
-        teoria:    row.teoria    ?? '',
-        pratica:   row.pratica   ?? '',
-        codealong: row.codealong ?? '',
-        recurso:   row.recurso   ?? '',
-        conexao:   row.conexao   ?? '',
-        obs_prof:  row.obs_prof  ?? '',
-        plano_b:   row.plano_b   ?? '',
-      };
+      if (!row.state_key) return acc;
+      acc[row.state_key] = EstadoAulas._rowToState(row);
+      return acc;
+    }, {});
+  },
+
+  // Carrega estado de TODAS as turmas do professor (para o Dashboard global)
+  async loadAll() {
+    const user = await Auth.getUser();
+    if (!user) return {};
+    const { data, error } = await supabase
+      .from('estado_aulas')
+      .select('*')
+      .eq('professor_id', user.id);
+    if (error) { console.error('EstadoAulas.loadAll error:', error); return {}; }
+    return (data || []).reduce((acc, row) => {
+      if (!row.state_key) return acc;
+      acc[row.state_key] = EstadoAulas._rowToState(row);
       return acc;
     }, {});
   },
@@ -439,7 +460,7 @@ export const EstadoAulas = {
   async save(turmaId, stateKey, updates) {
     const user = await Auth.getUser();
     if (!user) return;
-    const allowed = ['done','problems','nota_prof','data_aula','slide_url',
+    const allowed = ['done','problems','nota_prof','data_aula','data_aula_fim','slide_url',
                      'teoria','pratica','codealong','recurso','conexao','obs_prof','plano_b'];
     const safe = Object.fromEntries(
       Object.entries(updates).filter(([k]) => allowed.includes(k))

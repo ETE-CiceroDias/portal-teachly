@@ -34,6 +34,7 @@ function AppShell({ user }) {
   const [prevTab,     setPrevTab]     = useState('dashboard');
   const [activeTurma, setActiveTurma] = useState(null); // ID do banco
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setThemeState] = useState(() => initTheme());
 
   const toggleTheme = () => {
@@ -48,11 +49,11 @@ function AppShell({ user }) {
     }
   }, [turmas]);
 
+  // Carrega estado de TODAS as turmas (para Dashboard global) e mescla
   useEffect(() => {
-    if (!user || !activeTurma) { setState({}); return; }
-    // Carrega estado usando só o turmaId — sem tentar remontar chave
-    EstadoAulas.load(activeTurma).then(s => setState(s));
-  }, [user, activeTurma, turmas]);
+    if (!user || turmas.length === 0) { setState({}); return; }
+    EstadoAulas.loadAll().then(s => setState(s));
+  }, [user, turmas]);
 
   const persist = useCallback((updater) => {
     setState(prev => typeof updater === 'function' ? updater(prev) : updater);
@@ -162,6 +163,8 @@ function AppShell({ user }) {
         onToggleTheme={toggleTheme}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
       <div className="main-content">
         <div className="mobile-topbar">

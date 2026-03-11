@@ -7,17 +7,18 @@ export function AulaDetail({ aulaId, aula, state, onSave }) {
   const [newProb, setNewProb]     = useState('');
 
   const [form, setForm] = useState({
-    teoria:    state.teoria    ?? aula.teoria    ?? '',
-    pratica:   state.pratica   ?? aula.pratica   ?? '',
-    codealong: state.codealong ?? aula.codealong ?? '',
-    recurso:   state.recurso   ?? aula.recurso   ?? '',
-    conexao:   state.conexao   ?? aula.conexao   ?? '',
-    obs:       state.obs       ?? aula.obs       ?? '',
-    plano_b:   state.plano_b   ?? aula.plano_b   ?? '',
-    nota_prof: state.nota_prof ?? '',
-    data_aula: state.data_aula ?? '',
-    slide_url: state.slide_url ?? '',
-    problems:  [...(state.problems || [])],
+    teoria:        state.teoria        ?? aula.teoria        ?? '',
+    pratica:       state.pratica       ?? aula.pratica       ?? '',
+    codealong:     state.codealong     ?? aula.codealong     ?? '',
+    recurso:       state.recurso       ?? aula.recurso       ?? '',
+    conexao:       state.conexao       ?? aula.conexao       ?? '',
+    obs:           state.obs           ?? aula.obs           ?? '',
+    plano_b:       state.plano_b       ?? aula.plano_b       ?? '',
+    nota_prof:     state.nota_prof     ?? '',
+    data_aula:     state.data_aula     ?? '',
+    data_aula_fim: state.data_aula_fim ?? '',
+    slide_url:     state.slide_url     ?? '',
+    problems:      [...(state.problems || [])],
   });
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -53,13 +54,20 @@ export function AulaDetail({ aulaId, aula, state, onSave }) {
     { id: 'probs',  label: `Problemas${form.problems.length > 0 ? ` (${form.problems.length})` : ''}` },
   ];
 
+  // Label de data para exibir no card da aula (retrocompatível)
+  const dataLabel = form.data_aula
+    ? (form.data_aula_fim && form.data_aula_fim !== form.data_aula
+        ? `${form.data_aula} → ${form.data_aula_fim}`
+        : form.data_aula)
+    : '';
+
   return (
     <div className="aula-detail anim-down">
       <div className="detail-tabs">
         {TABS.map(t => (
           <button
             key={t.id}
-            className={`dtab${activeTab === t.id ? ' active' : ''}`}
+            className={"dtab" + (activeTab === t.id ? " active" : "")}
             onClick={() => setActiveTab(t.id)}
           >
             {t.label}
@@ -68,7 +76,7 @@ export function AulaDetail({ aulaId, aula, state, onSave }) {
       </div>
 
       {/* Plano */}
-      <div className={`detail-panel${activeTab === 'plano' ? ' active' : ''}`}>
+      <div className={"detail-panel" + (activeTab === "plano" ? " active" : "")}>
         {planFields.length > 0 ? (
           <div className="detail-grid">
             {planFields.map(f => (
@@ -84,47 +92,80 @@ export function AulaDetail({ aulaId, aula, state, onSave }) {
             ))}
           </div>
         ) : (
-          <div style={{ color: 'var(--text3)', fontSize: '0.875rem', padding: '8px 0' }}>
+          <div style={{ color: "var(--text3)", fontSize: "0.875rem", padding: "8px 0" }}>
             Sem conteúdo de plano para esta aula.
           </div>
         )}
       </div>
 
       {/* Notas */}
-      <div className={`detail-panel${activeTab === 'notas' ? ' active' : ''}`}>
+      <div className={"detail-panel" + (activeTab === "notas" ? " active" : "")}>
         <div className="detail-grid">
           <div className="field">
             <div className="field-label">📝 Minha anotação</div>
             <textarea
               className="field-textarea"
               value={form.nota_prof}
-              onChange={e => set('nota_prof', e.target.value)}
+              onChange={e => set("nota_prof", e.target.value)}
               rows={5}
               placeholder="Como foi a aula, o que ficou pendente, o que funcionou bem..."
             />
           </div>
+
+          {/* Datas — inicio e fim separados */}
           <div className="field">
             <div className="field-label">📅 Data da aula</div>
-            <input
-              type="date"
-              className="field-input"
-              value={form.data_aula}
-              onChange={e => set('data_aula', e.target.value)}
-            />
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 140 }}>
+                <div style={{ fontSize: "0.7rem", color: "var(--text3)", fontWeight: 600, letterSpacing: 1 }}>INÍCIO</div>
+                <input
+                  type="date"
+                  className="field-input"
+                  value={form.data_aula}
+                  onChange={e => {
+                    set("data_aula", e.target.value);
+                    // Se fim estava vazio, preenche igual ao início
+                    if (!form.data_aula_fim) set("data_aula_fim", e.target.value);
+                  }}
+                />
+              </div>
+              <div style={{ color: "var(--text3)", fontSize: "0.85rem", paddingTop: 18 }}>→</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 140 }}>
+                <div style={{ fontSize: "0.7rem", color: "var(--text3)", fontWeight: 600, letterSpacing: 1 }}>
+                  FIM <span style={{ fontWeight: 400, opacity: 0.7 }}>(se diferente)</span>
+                </div>
+                <input
+                  type="date"
+                  className="field-input"
+                  value={form.data_aula_fim}
+                  onChange={e => set("data_aula_fim", e.target.value)}
+                />
+              </div>
+            </div>
+            {form.data_aula && form.data_aula_fim && form.data_aula !== form.data_aula_fim && (
+              <div style={{
+                marginTop: 8, fontSize: "0.75rem", color: "var(--teal)",
+                background: "rgba(20,184,166,0.08)", borderRadius: 6, padding: "4px 10px",
+                display: "inline-block",
+              }}>
+                ✓ Aula em dois dias: {form.data_aula} e {form.data_aula_fim}
+              </div>
+            )}
           </div>
+
           <div className="field">
             <div className="field-label">🔗 Link do slide / material da aula</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input
                 type="url"
                 className="field-input"
                 placeholder="https://docs.google.com/presentation/..."
                 value={form.slide_url}
-                onChange={e => set('slide_url', e.target.value)}
+                onChange={e => set("slide_url", e.target.value)}
               />
               {form.slide_url && (
                 <a href={form.slide_url} target="_blank" rel="noreferrer"
-                  style={{ color: 'var(--accent-light)', fontSize: '0.8rem', whiteSpace: 'nowrap', textDecoration: 'none' }}
+                  style={{ color: "var(--accent-light)", fontSize: "0.8rem", whiteSpace: "nowrap", textDecoration: "none" }}
                 >↗ Abrir</a>
               )}
             </div>
@@ -133,7 +174,7 @@ export function AulaDetail({ aulaId, aula, state, onSave }) {
       </div>
 
       {/* Problemas */}
-      <div className={`detail-panel${activeTab === 'probs' ? ' active' : ''}`}>
+      <div className={"detail-panel" + (activeTab === "probs" ? " active" : "")}>
         {form.problems.length > 0 && (
           <div className="prob-tags" style={{ marginBottom: 12 }}>
             {form.problems.map((p, i) => (
@@ -145,7 +186,7 @@ export function AulaDetail({ aulaId, aula, state, onSave }) {
           </div>
         )}
         {form.problems.length === 0 && (
-          <div style={{ color: 'var(--text3)', fontSize: '0.8125rem', marginBottom: 12 }}>
+          <div style={{ color: "var(--text3)", fontSize: "0.8125rem", marginBottom: 12 }}>
             Nenhum problema registrado ainda.
           </div>
         )}
@@ -155,7 +196,7 @@ export function AulaDetail({ aulaId, aula, state, onSave }) {
             placeholder="Descreva o problema e pressione Enter..."
             value={newProb}
             onChange={e => setNewProb(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addProb()}
+            onKeyDown={e => e.key === "Enter" && addProb()}
           />
           <button className="add-prob-btn" onClick={addProb}>+ Add</button>
         </div>

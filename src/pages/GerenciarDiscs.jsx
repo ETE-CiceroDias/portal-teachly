@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
 import { COURSES } from '../data/courses.js';
 import { PencilSimple, Trash, Eye, EyeSlash, DownloadSimple, Plus, Check, Power } from '@phosphor-icons/react';
+import { ConfirmModal } from '../components/ConfirmModal.jsx';
 
 const CORES = ['#7c3aed','#a855f7','#c084fc','#e879f9','#60a5fa','#4ade80','#fbbf24','#fb923c','#f87171','#2dd4bf'];
 
@@ -14,6 +15,18 @@ function Modal({ title, onClose, children }) {
         <div className="modal-title">{title}</div>
         {children}
       </div>
+
+      {/* ── Modal de confirmação global ── */}
+      {confirmItem && (
+        <ConfirmModal
+          title={confirmItem.type === 'turma' ? 'Excluir turma' : confirmItem.type === 'disc' ? 'Excluir disciplina' : 'Confirmar importação'}
+          message={confirmItem.msg}
+          confirmLabel={confirmItem.type === 'importar' ? 'Importar' : 'Excluir'}
+          danger={confirmItem.type !== 'importar'}
+          onConfirm={confirmItem.onConfirm}
+          onCancel={() => setConfirmItem(null)}
+        />
+      )}
     </div>
   );
 }
@@ -42,6 +55,7 @@ export function GerenciarDiscs() {
   const [formTurma, setFormTurma]= useState({ label:'', modulo:'', cor:'#7c3aed', hasDesafio:false, periodo:'', ano: new Date().getFullYear().toString() });
   const [saving,    setSaving]   = useState(false);
   const [log,       setLog]      = useState('');
+  const [confirmItem, setConfirmItem] = useState(null); // { type:'disc'|'turma', item, onConfirm }
 
   const fd = k => e => setFormDisc(p=>({...p,[k]: e.target?.value ?? e}));
   const ft = k => e => setFormTurma(p=>({...p,[k]: e.target?.value ?? e}));
@@ -93,7 +107,6 @@ export function GerenciarDiscs() {
   };
 
   const excluirTurma = async (turma) => {
-    if (!confirm(`Excluir turma "${turma.modulo} · ${turma.label}"?\nIsso também removerá todas as disciplinas vinculadas.`)) return;
     await supabase.from('disciplinas').delete().eq('turma_id', turma.id);
     const { error } = await supabase.from('turmas').delete().eq('id', turma.id);
     if (error) alert(error.message);
@@ -136,7 +149,6 @@ export function GerenciarDiscs() {
   };
 
   const excluirDisc = async (disc) => {
-    if (!confirm(`Excluir "${disc.label}" permanentemente?`)) return;
     const { error } = await supabase.from('disciplinas').delete().eq('id', disc.id);
     if (error) alert(error.message);
     else await reload();
@@ -171,23 +183,25 @@ export function GerenciarDiscs() {
     }
 
     const jaTemConteudo = disc.blocos && disc.blocos.length > 0;
-    if (jaTemConteudo) {
-      const ok = confirm(`A disciplina "${disc.label}" já tem conteúdo importado.\n\nDeseja sobrescrever com o plano de "${match.fullname}"?`);
-      if (!ok) return;
-    } else {
-      const ok = confirm(`Importar o plano completo de "${match.fullname}" para "${disc.label}"?\n\nIsso preencherá os blocos de aulas, avaliação e descrição.`);
-      if (!ok) return;
-    }
+    const msg = jaTemConteudo
+      ? `A disciplina já tem conteúdo. Deseja sobrescrever com o plano de "${match.fullname}"?`
+      : `Importar o plano completo de "${match.fullname}" para "${disc.label}"?`;
+    setConfirmItem({ type: 'importar', msg, onConfirm: () => _doImportar(disc, match) });
+    return;
 
+    // conteudo importado via _doImportar
+  };
+
+  const _doImportar = async (disc, match) => {
+    setConfirmItem(null);
     setSaving(true);
     const { error } = await supabase.from('disciplinas').update({
       blocos:      match.blocos      || [],
       avaliacao:   match.avaliacao   || '',
       descricao:   match.apresentacao || match.competencias || '',
     }).eq('id', disc.id);
-
     if (error) alert('Erro ao importar: ' + error.message);
-    else { await reload(); alert(`✅ Plano de "${match.fullname}" importado com sucesso!`); }
+    else await reload();
     setSaving(false);
   };
 
@@ -271,7 +285,7 @@ export function GerenciarDiscs() {
                       <button onClick={()=>{ setFormDisc({ nome:disc.label, codigo:disc.code, cor:disc.cor, ativa:disc.ativa }); setModal(disc); setLog(''); }} style={{
                         background:'none', border:'none', cursor:'pointer', color:'var(--text3)',
                       }}><PencilSimple size={15} /></button>
-                      <button onClick={()=>excluirDisc(disc)} style={{
+                      <button onClick={()=>setConfirmItem({ type:'disc', msg:`Excluir "${disc.label}" permanentemente? Esta ação não pode ser desfeita.`, onConfirm: () => { setConfirmItem(null); excluirDisc(disc); } })} style={{
                         background:'none', border:'none', cursor:'pointer', color:'var(--red)',
                       }}><Trash size={15} /></button>
                     </div>
@@ -373,7 +387,7 @@ export function GerenciarDiscs() {
           </div>
           {log && <div style={{ color:'var(--red)', fontSize:'0.8rem', marginBottom:8 }}>{log}</div>}
           <div className="modal-footer">
-            <button className="btn-ghost" style={{ color:'var(--red)' }} onClick={()=>excluirTurma(modal)}>Excluir turma</button>
+            <button className="btn-ghost" style={{ color:'var(--red)' }} onClick={()=>setConfirmItem({ type:'turma', msg:`Excluir a turma "${modal.modulo} · ${modal.label}"? Isso também removerá todas as disciplinas vinculadas.`, onConfirm: () => { setConfirmItem(null); excluirTurma(modal); } })}>Excluir turma</button>
             <button className="btn-ghost" onClick={()=>setModal(null)}>Cancelar</button>
             <button className="btn-primary" onClick={salvarTurma} disabled={saving}>
               {saving ? 'Salvando…' : 'Salvar'}
@@ -437,7 +451,7 @@ export function GerenciarDiscs() {
           </div>
           {log && <div style={{ color:'var(--red)', fontSize:'0.8rem', marginBottom:8 }}>{log}</div>}
           <div className="modal-footer">
-            <button className="btn-ghost" style={{ color:'var(--red)' }} onClick={()=>excluirDisc(modal)}>Excluir</button>
+            <button className="btn-ghost" style={{ color:'var(--red)' }} onClick={()=>setConfirmItem({ type:'disc', msg:`Excluir "${modal.label}" permanentemente? Esta ação não pode ser desfeita.`, onConfirm: () => { setConfirmItem(null); excluirDisc(modal); } })}>Excluir</button>
             <button className="btn-ghost" onClick={()=>setModal(null)}>Cancelar</button>
             <button className="btn-primary" onClick={salvarDisc} disabled={saving}>
               {saving ? 'Salvando…' : 'Salvar'}

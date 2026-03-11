@@ -62,13 +62,43 @@ function Modal({ title, onClose, children }) {
 // ── Banner upload ─────────────────────────────────────────────
 function BannerSection({ discKey, banner_url, banner_cor, editMode, onChange }) {
   const cor = banner_cor || DISC_CORES[discKey] || '#7c3aed';
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState('');
 
-  const handleFile = e => {
+  const handleFile = async e => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => onChange({ banner_url: ev.target.result });
-    reader.readAsDataURL(file);
+    setUploading(true);
+    setUploadErr('');
+
+    // Garante tamanho razoável (max 3MB)
+    if (file.size > 3 * 1024 * 1024) {
+      setUploadErr('Imagem muito grande (máx 3MB)');
+      setUploading(false);
+      return;
+    }
+
+    const ext      = file.name.split('.').pop();
+    const path     = `banners/${discKey}_${Date.now()}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from('disciplinas')
+      .upload(path, file, { upsert: true, contentType: file.type });
+
+    if (upErr) {
+      // Fallback: salva como base64 se storage não existir/erro de permissão
+      const reader = new FileReader();
+      reader.onload = ev => { onChange({ banner_url: ev.target.result }); setUploading(false); };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('disciplinas')
+      .getPublicUrl(path);
+
+    onChange({ banner_url: publicUrl });
+    setUploading(false);
   };
 
   return (
@@ -86,16 +116,21 @@ function BannerSection({ discKey, banner_url, banner_cor, editMode, onChange }) 
       }} />
 
       {editMode && (
-        <div style={{ position:'absolute', top:12, right:12, display:'flex', gap:8, zIndex:2 }}>
+        <div style={{ position:'absolute', top:12, right:12, display:'flex', gap:8, zIndex:2, flexDirection:'column', alignItems:'flex-end' }}>
+          {uploadErr && (
+            <div style={{ background:'rgba(220,38,38,0.8)', borderRadius:6, padding:'4px 10px', fontSize:'0.72rem', color:'white' }}>{uploadErr}</div>
+          )}
+          <div style={{ display:'flex', gap:8 }}>
           <label style={{
-            background:'rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.2)',
-            borderRadius:8, padding:'6px 12px', cursor:'pointer',
+            background: uploading ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.6)',
+            border:'1px solid rgba(255,255,255,0.2)',
+            borderRadius:8, padding:'6px 12px', cursor: uploading ? 'default' : 'pointer',
             fontSize:'0.78rem', color:'white', backdropFilter:'blur(4px)',
           }}>
-            📷 Trocar banner
-            <input type="file" accept="image/*" style={{ display:'none' }} onChange={handleFile} />
+            {uploading ? '⏳ Enviando…' : '📷 Trocar banner'}
+            <input type="file" accept="image/*" style={{ display:'none' }} onChange={handleFile} disabled={uploading} />
           </label>
-          {banner_url && (
+          {banner_url && !uploading && (
             <button onClick={() => onChange({ banner_url: '' })} style={{
               background:'rgba(220,38,38,0.7)', border:'none', borderRadius:8,
               padding:'6px 10px', cursor:'pointer', fontSize:'0.78rem', color:'white',
@@ -108,6 +143,7 @@ function BannerSection({ discKey, banner_url, banner_cor, editMode, onChange }) 
                 border: cor === c ? '2px solid white' : '2px solid transparent',
               }} />
             ))}
+          </div>
           </div>
         </div>
       )}
@@ -229,6 +265,8 @@ export function CoursePage({ courseKey, discId, discBlocos, discLabel, discCode,
   const [editMode,  setEditMode]  = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [savedOk,   setSavedOk]   = useState(false);
+  // Blocos editáveis (cópia local para edição estrutural)
+  const [blocosEdit, setBlocosEdit] = useState(null);
 
   // conteúdo editável vindo do banco
   const [conteudo, setConteudo] = useState({
@@ -285,10 +323,37 @@ export function CoursePage({ courseKey, discId, discBlocos, discLabel, discCode,
       competencias: conteudo.competencias,
       atualizado_em: new Date().toISOString(),
     });
+    // Salva estrutura de blocos editados no banco (coluna blocos da disciplina)
+    if (blocosEdit !== null && discId) {
+      await supabase.from('disciplinas').update({ blocos: blocosEdit }).eq('id', discId);
+    }
     setSaving(false);
     setSavedOk(true);
     setEditMode(false);
+    setBlocosEdit(null);
     setTimeout(() => setSavedOk(false), 2000);
+  };
+
+  // ── Novo bloco ─────────────────────────────────────────────
+  const handleAddBloco = () => {
+    const currentBlocos = blocosEdit ?? blocosFonte;
+    const num = String(currentBlocos.length + 1).padStart(2, '0');
+    const newBloco = {
+      titulo: 'Bloco ' + num + ' . Novo Bloco',
+      aulas: [{ id: 'AULA 01', titulo: 'Aula 01\nSubtítulo' }],
+    };
+    setBlocosEdit([...currentBlocos, newBloco]);
+  };
+
+  const handleUpdateBloco = (idx, updated) => {
+    const currentBlocos = blocosEdit ?? blocosFonte;
+    setBlocosEdit(currentBlocos.map((b, i) => i === idx ? updated : b));
+  };
+
+  const handleDeleteBloco = (idx) => {
+    // Chamado pelo Bloco após confirmação no próprio modal
+    const currentBlocos = blocosEdit ?? blocosFonte;
+    setBlocosEdit(currentBlocos.filter((_, i) => i !== idx));
   };
 
   // ── Mini projetos CRUD ─────────────────────────────────────
@@ -320,12 +385,15 @@ export function CoursePage({ courseKey, discId, discBlocos, discLabel, discCode,
     setProjetos(p => p.filter((_, i) => i !== idx));
   };
 
-  // Prioridade: blocos do banco (discBlocos) > blocos do COURSES local
+  // Prioridade: blocosEdit (edição em curso) > blocos do banco > blocos do COURSES local
   const blocosFonte = discBlocos?.length ? discBlocos : (course?.blocos || []);
-  const courseComBlocos = { ...course, blocos: blocosFonte };
+  const blocosAtivos = blocosEdit ?? blocosFonte;
+  const courseComBlocos = { ...course, blocos: blocosAtivos };
   const allCoursesComBlocos = { ...COURSES, [courseKey]: courseComBlocos };
   const s      = courseStats(courseKey, activeTurma, allCoursesComBlocos, state);
-  const blocos = getOrderedBlocos(courseKey, activeTurma, allCoursesComBlocos, state);
+  const blocos = editMode
+    ? blocosAtivos  // em edição: usa direto sem reordenação de estado
+    : getOrderedBlocos(courseKey, activeTurma, allCoursesComBlocos, state);
   const cor    = conteudo.banner_cor || DISC_CORES[courseKey] || '#7c3aed';
 
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:300, color:'var(--text3)', fontSize:'0.9rem' }}>Carregando...</div>;
@@ -491,8 +559,24 @@ export function CoursePage({ courseKey, discId, discBlocos, discLabel, discCode,
           onToggle={onToggle}
           onSave={onSave}
           onReorder={(blocoIdx, fi, ti) => onReorder(blocoIdx, fi, ti)}
+          editMode={editMode}
+          onUpdateBloco={updated => handleUpdateBloco(bi, updated)}
+          onDeleteBloco={() => handleDeleteBloco(bi)}
         />
       ))}
+
+      {/* ── Novo Bloco (só em editMode) ── */}
+      {editMode && (
+        <button onClick={handleAddBloco} style={{
+          width:'100%', marginTop:8,
+          background:'rgba(124,58,237,0.07)', border:'1px dashed rgba(124,58,237,0.35)',
+          borderRadius:12, padding:'14px', color:'var(--accent3)',
+          fontSize:'0.85rem', fontWeight:600, cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+        }}>
+          + Novo Bloco
+        </button>
+      )}
     </div>
   );
 }
