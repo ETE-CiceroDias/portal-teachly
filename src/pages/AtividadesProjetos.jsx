@@ -1,4 +1,5 @@
 import { EmptyState } from '../components/EmptyState.jsx';
+import { ConfirmModal } from '../components/ConfirmModal.jsx';
 // pages/AtividadesProjetos.jsx
 import { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
@@ -511,8 +512,8 @@ function DetailModal({ item, onClose, onEdit, onDelete, buildMailto }) {
 // ─── Página principal ──────────────────────────────────────────
 export function AtividadesProjetos() {
   const [items, setItems] = useState([]);
-  const [showVitrine, setShowVitrine] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [confirmId, setConfirmId] = useState(null); // id para confirmar exclusão
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -547,10 +548,14 @@ export function AtividadesProjetos() {
   };
 
   const excluir = (id) => {
-    if (!confirm('Excluir este item?')) return;
-    setItems(its => its.filter(i => i.id !== id));
+    setConfirmId(id);
     setViewId(null);
-    supabase.from('atividades').delete().eq('id', id);
+  };
+
+  const confirmarExclusao = () => {
+    setItems(its => its.filter(i => i.id !== confirmId));
+    supabase.from('atividades').delete().eq('id', confirmId);
+    setConfirmId(null);
   };
 
   const toggleTurma = (tk) => {
@@ -591,9 +596,6 @@ export function AtividadesProjetos() {
 
   const viewItem = viewId ? items.find(i => i.id === viewId) : null;
   const tipoInfo = (t) => TIPOS.find(x => x.value === t) || TIPOS[0];
-
-  // Mostrar o card da Vitrine só quando filtro não bloqueia
-  const showVitrineCard = filtroTipo === 'todos' || filtroTipo === 'projeto';
 
   return (
     <div className="anim-up">
@@ -640,56 +642,12 @@ export function AtividadesProjetos() {
           {Object.values(TURMAS).map(t => <option key={t.key} value={t.key}>{t.modulo} · {t.label}</option>)}
         </select>
         <div style={{ marginLeft: 'auto', fontSize: '0.8125rem', color: 'var(--text3)', display: 'flex', alignItems: 'center' }}>
-          {filtered.length + (showVitrineCard ? 1 : 0)} item{(filtered.length + (showVitrineCard ? 1 : 0)) !== 1 ? 's' : ''}
+          {filtered.length} item{filtered.length !== 1 ? 's' : ''}
         </div>
       </div>
 
       {/* Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: 14 }}>
-
-        {/* Card fixo: Vitrine UX/UI */}
-        {showVitrineCard && (
-          <div
-            onClick={() => setShowVitrine(true)}
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid #c084fc44',
-              borderRadius: 'var(--r-md)',
-              overflow: 'hidden',
-              cursor: 'pointer',
-              transition: 'border-color 0.15s, transform 0.12s, box-shadow 0.15s',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = '#c084fc'; e.currentTarget.style.boxShadow = '0 8px 24px #c084fc22'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#c084fc44'; e.currentTarget.style.boxShadow = 'none'; }}
-          >
-            <div style={{ height: 4, background: 'linear-gradient(90deg, #c084fc, #818cf8)', flexShrink: 0 }} />
-            <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <span style={{ fontSize: '0.7rem', background: '#c084fc22', color: '#c084fc', border: '1px solid #c084fc44', borderRadius: 99, padding: '2px 8px', fontWeight: 700 }}>🚀 Projeto</span>
-                <span style={{ fontSize: '0.7rem', background: 'rgba(251,191,36,0.1)', color: 'var(--amber)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 99, padding: '2px 8px', fontWeight: 700 }}>⭐ +1 Ponto</span>
-              </div>
-              <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 5, lineHeight: 1.3, fontSize: '0.95rem' }}>
-                🎨 Vitrine UX/UI na Prática
-              </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: 10, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.55 }}>
-                Análise crítica de um app real, redesign no Figma e publicação como estudo de caso no LinkedIn. Integra DCU e DT.
-              </div>
-              <div style={{ flex: 1 }} />
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.7rem', background: 'var(--surface3)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 99, padding: '1px 7px' }}>DCU</span>
-                <span style={{ fontSize: '0.7rem', background: 'var(--surface3)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 99, padding: '1px 7px' }}>Design Thinking</span>
-                <span style={{ fontSize: '0.7rem', background: 'var(--surface3)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 99, padding: '1px 7px' }}>Figma</span>
-                <span style={{ fontSize: '0.7rem', background: 'var(--surface3)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 99, padding: '1px 7px' }}>LinkedIn</span>
-              </div>
-            </div>
-            <div style={{ padding: '9px 16px', borderTop: '1px solid #c084fc22', background: 'linear-gradient(90deg, #c084fc08, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <span style={{ fontSize: '0.72rem', color: '#c084fc', fontWeight: 600 }}>Ver rubrica e passos</span>
-              <ArrowSquareOut size={13} color="#c084fc" />
-            </div>
-          </div>
-        )}
 
         {/* Cards das atividades */}
         {filtered.map(item => {
@@ -747,7 +705,7 @@ export function AtividadesProjetos() {
         })}
 
         {/* Empty state se não tem nada */}
-        {filtered.length === 0 && !showVitrineCard && (
+        {filtered.length === 0 && (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '48px 0' }}>
             <EmptyState icon="📋" title="Nenhuma atividade cadastrada"
               desc="Crie atividades, projetos, provas e entregas para acompanhar os prazos das suas turmas."
@@ -756,15 +714,22 @@ export function AtividadesProjetos() {
         )}
       </div>
 
-      {/* Modal da Vitrine */}
-      {showVitrine && <VitrineModal onClose={() => setShowVitrine(false)} />}
-
       {/* Modal detalhes genérico */}
       {viewItem && (
         <DetailModal item={viewItem} onClose={() => setViewId(null)} onEdit={openEdit} onDelete={excluir} buildMailto={buildMailto} />
       )}
 
-      {/* Modal Formulário */}
+      {/* Confirm exclusão */}
+      {confirmId && (
+        <ConfirmModal
+          title="Excluir atividade"
+          message="Tem certeza que deseja excluir esta atividade? Esta ação não pode ser desfeita."
+          confirmLabel="Excluir"
+          danger
+          onConfirm={confirmarExclusao}
+          onCancel={() => setConfirmId(null)}
+        />
+      )}
       {showForm && (
         <Modal title={editId ? 'Editar atividade' : 'Nova atividade'} onClose={() => setShowForm(false)} wide>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

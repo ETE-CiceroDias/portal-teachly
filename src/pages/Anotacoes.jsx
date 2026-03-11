@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
+import { ConfirmModal } from '../components/ConfirmModal.jsx';
 import {
   Plus, MagnifyingGlass, PushPin, Archive,
   ArrowUUpLeft, Trash, Tag, X, Check, ArrowLeft,
@@ -201,6 +202,7 @@ export function Anotacoes({ onBack }) {
   const [filtroTurma,   setFiltroTurma]   = useState('todas');
   const [verArquivadas, setVerArquivadas] = useState(false);
   const [editando,      setEditando]      = useState(null);
+  const [confirmDel,    setConfirmDel]    = useState(null);
 
   useEffect(() => {
     supabase.from('anotacoes').select('*')
@@ -228,10 +230,14 @@ export function Anotacoes({ onBack }) {
   };
 
   const deletar = async (id) => {
-    if (!confirm('Excluir esta anotação?')) return;
-    await supabase.from('anotacoes').delete().eq('id', id);
-    setNotas(n => n.filter(x => x.id!==id));
-    if (editando?.id === id) setEditando(null);
+    setConfirmDel(id);
+  };
+
+  const confirmarDeletar = async () => {
+    await supabase.from('anotacoes').delete().eq('id', confirmDel);
+    setNotas(n => n.filter(x => x.id !== confirmDel));
+    if (editando?.id === confirmDel) setEditando(null);
+    setConfirmDel(null);
   };
 
   const toggleFixar = async (nota) => {
@@ -264,6 +270,7 @@ export function Anotacoes({ onBack }) {
   }
 
   return (
+    <>
     <div className="anim-up">
       <div className="page-header">
         <div>
@@ -324,5 +331,17 @@ export function Anotacoes({ onBack }) {
         </>
       )}
     </div>
+
+    {confirmDel && (
+      <ConfirmModal
+        title="Excluir anotação"
+        message="Tem certeza que deseja excluir esta anotação? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        danger
+        onConfirm={confirmarDeletar}
+        onCancel={() => setConfirmDel(null)}
+      />
+    )}
+  </>
   );
 }
