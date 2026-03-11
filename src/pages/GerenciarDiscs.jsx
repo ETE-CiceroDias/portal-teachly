@@ -15,18 +15,6 @@ function Modal({ title, onClose, children }) {
         <div className="modal-title">{title}</div>
         {children}
       </div>
-
-      {/* ── Modal de confirmação global ── */}
-      {confirmItem && (
-        <ConfirmModal
-          title={confirmItem.type === 'turma' ? 'Excluir turma' : confirmItem.type === 'disc' ? 'Excluir disciplina' : 'Confirmar importação'}
-          message={confirmItem.msg}
-          confirmLabel={confirmItem.type === 'importar' ? 'Importar' : 'Excluir'}
-          danger={confirmItem.type !== 'importar'}
-          onConfirm={confirmItem.onConfirm}
-          onCancel={() => setConfirmItem(null)}
-        />
-      )}
     </div>
   );
 }
@@ -458,6 +446,17 @@ export function GerenciarDiscs() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {confirmItem && (
+        <ConfirmModal
+          title={confirmItem.type === 'turma' ? 'Excluir turma' : confirmItem.type === 'disc' ? 'Excluir disciplina' : 'Confirmar importação'}
+          message={confirmItem.msg}
+          confirmLabel={confirmItem.type === 'importar' ? 'Importar' : 'Excluir'}
+          danger={confirmItem.type !== 'importar'}
+          onConfirm={confirmItem.onConfirm}
+          onCancel={() => setConfirmItem(null)}
+        />
       )}
     </div>
   );

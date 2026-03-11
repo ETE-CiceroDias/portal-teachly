@@ -334,13 +334,11 @@ a:hover { text-decoration: underline; }
   z-index: 100;
   transition: width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1);
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: visible;
+  overflow: visible;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   flex-shrink: 0;
-  /* Botão de toggle fica relativo à sidebar */
-  position: sticky;
-  top: 0;
   align-self: flex-start;
 }
 
@@ -605,7 +603,6 @@ a:hover { text-decoration: underline; }
 .sidebar.collapsed {
   width: 64px !important;
   min-width: 64px !important;
-  overflow: visible;
 }
 .sidebar.collapsed .sidebar-title,
 .sidebar.collapsed .sidebar-subtitle,
@@ -613,14 +610,19 @@ a:hover { text-decoration: underline; }
 .sidebar.collapsed .turma-subnav,
 .sidebar.collapsed .sidebar-prof-name,
 .sidebar.collapsed .sidebar-prof-role {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
   display: none !important;
 }
 .sidebar.collapsed .nav-item {
   justify-content: center;
   padding: 10px 0;
+  overflow: hidden;
 }
-.sidebar.collapsed .nav-item span:last-child:not(.nav-icon) {
-  display: none;
+/* Esconde texto dos nav-items mas mantém ícone */
+.sidebar.collapsed .nav-item > *:not(.nav-icon) {
+  display: none !important;
 }
 .sidebar.collapsed .nav-icon {
   margin: 0 auto;
@@ -629,11 +631,13 @@ a:hover { text-decoration: underline; }
   justify-content: center;
   padding: 16px 0;
   gap: 0;
+  overflow: hidden;
 }
 .sidebar.collapsed .sidebar-profile-btn {
   justify-content: center;
   padding: 10px 0;
   gap: 0;
+  overflow: hidden;
 }
 .sidebar.collapsed .sidebar-avatar {
   margin: 0 auto;
