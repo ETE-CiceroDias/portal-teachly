@@ -193,33 +193,38 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
 
         {/* Profile dropdown */}
         <div className="sidebar-profile-area" ref={menuRef}>
-          <button className="sidebar-profile-btn" onClick={() => setMenuOpen(o => !o)}>
+          <button className="sidebar-profile-btn" onClick={() => setMenuOpen(o => !o)}
+            title={collapsed ? (nome || 'Professora') : undefined}>
             <div className="sidebar-avatar">
               {photo ? <img src={photo} alt="Foto" /> : '👩‍🏫'}
             </div>
-            <div style={{ flex:1, minWidth:0, textAlign:'left' }}>
-              <div className="sidebar-prof-name">{nome || 'Professora'}</div>
-              <div className="sidebar-prof-role">{org?.nome || '…'}</div>
-            </div>
-            <CaretDown size={12} weight="bold" color="var(--text3)"
-              style={{ transition:'transform 0.2s', transform: menuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+            {!collapsed && (
+              <>
+                <div style={{ flex:1, minWidth:0, textAlign:'left' }}>
+                  <div className="sidebar-prof-name">{nome || 'Professora'}</div>
+                  <div className="sidebar-prof-role">{org?.nome || '…'}</div>
+                </div>
+                <CaretDown size={12} weight="bold" color="var(--text3)"
+                  style={{ transition:'transform 0.2s', transform: menuOpen ? 'rotate(180deg)' : 'rotate(0deg)', flexShrink:0 }} />
+              </>
+            )}
           </button>
 
           {menuOpen && (
-            <div className="profile-dropdown">
+            <div className={`profile-dropdown${collapsed ? ' profile-dropdown-collapsed' : ''}`}>
               <button className="profile-dropdown-item" onClick={() => go('profile')}>
-                <GearSix size={16} weight="regular" /> Configurações & Perfil
+                <GearSix size={16} weight="regular" /> <span className="nav-label">Configurações & Perfil</span>
               </button>
               <div className="profile-dropdown-divider" />
               <button className="profile-dropdown-item" onClick={() => { onToggleTheme(); setMenuOpen(false); }}>
                 {theme === 'dark'
                   ? <Sun size={16} weight="regular" />
                   : <Moon size={16} weight="regular" />}
-                {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+                <span className="nav-label">{theme === 'dark' ? 'Modo claro' : 'Modo escuro'}</span>
               </button>
               <div className="profile-dropdown-divider" />
               <button className="profile-dropdown-item danger" onClick={() => { setMenuOpen(false); onLogout(); }}>
-                <SignOut size={16} weight="regular" /> Sair
+                <SignOut size={16} weight="regular" /> <span className="nav-label">Sair</span>
               </button>
             </div>
           )}

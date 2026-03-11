@@ -14,7 +14,7 @@ const TABS = [
   { id:'conta',  icon:<Gear size={15} />,          label:'Conta & App' },
 ];
 
-const DEFAULT = { nome:'', role:'', bio:'', instagram:'', linkedin:'', github:'', email:'', avatar_url:'' };
+const DEFAULT = { nome:'', role:'', bio:'', instagram:'', linkedin:'', github:'', email:'', avatar_url:'', area: '' };
 
 const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 const TIPOS   = [
@@ -404,6 +404,33 @@ export function Profile({ theme, onToggleTheme, onLogout }) {
               <input className="profile-input" placeholder="Nome completo" value={data.nome||''} onChange={e=>set('nome',e.target.value)} />
               <input className="profile-input" placeholder="Cargo / Função" value={data.role||''} onChange={e=>set('role',e.target.value)} />
               <textarea className="profile-input" placeholder="Bio / Apresentação..." value={data.bio||''} onChange={e=>set('bio',e.target.value)} rows={4} style={{ resize:'vertical' }} />
+
+              {/* Área de ensino */}
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize:'0.75rem', fontWeight:700, color:'var(--text3)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:8 }}>Área de ensino</div>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  {[
+                    { id:'design', emoji:'🎨', label:'Design Gráfico',              cor:'#c084fc' },
+                    { id:'ds',     emoji:'💻', label:'Desenvolvimento de Sistemas',  cor:'#60a5fa' },
+                    { id:'ambos',  emoji:'⚡', label:'Ambas as áreas',               cor:'#4ade80' },
+                  ].map(a => (
+                    <button key={a.id} onClick={() => set('area', a.id)} style={{
+                      padding:'7px 14px', borderRadius:99, border:`1.5px solid ${data.area===a.id ? a.cor : 'var(--border)'}`,
+                      background: data.area===a.id ? `${a.cor}18` : 'transparent',
+                      color: data.area===a.id ? a.cor : 'var(--text3)',
+                      cursor:'pointer', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:600,
+                      transition:'all 0.15s', display:'flex', alignItems:'center', gap:5,
+                    }}>
+                      <span>{a.emoji}</span>{a.label}
+                    </button>
+                  ))}
+                </div>
+                {!data.area && (
+                  <div style={{ fontSize:'0.75rem', color:'var(--text3)', marginTop:6 }}>
+                    Selecione sua área para ver sugestões de disciplinas personalizadas.
+                  </div>
+                )}
+              </div>
             </div>
             <div className="profile-card">
               <div className="profile-card-title" style={{display:'flex',alignItems:'center',gap:6}}><EnvelopeSimple size={14} />Redes Sociais</div>

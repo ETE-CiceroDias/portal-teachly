@@ -1140,11 +1140,9 @@ a:hover { text-decoration: underline; }
   inset: 0;
   background: rgba(0,0,0,0.65);
   z-index: 200;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 32px 20px;
+  display: block;
   overflow-y: auto;
+  padding: 40px 20px;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease;
 }
@@ -1156,10 +1154,10 @@ a:hover { text-decoration: underline; }
   padding: 28px;
   width: 100%;
   max-width: 520px;
-  overflow-y: visible;
+  margin: 0 auto;
   animation: slideUp 0.25s ease;
   box-shadow: 0 32px 80px rgba(0,0,0,0.5);
-  margin: auto 0;
+  position: relative;
 }
 
 .modal-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
@@ -1666,8 +1664,17 @@ a:hover { text-decoration: underline; }
   border-radius: 12px;
   padding: 6px;
   box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
-  z-index: 100;
+  z-index: 200;
   animation: fadeUp 0.15s ease;
+}
+
+/* Quando sidebar está colapsado: dropdown abre à direita */
+.profile-dropdown-collapsed {
+  left: calc(100% + 8px);
+  right: auto;
+  bottom: 0;
+  width: 180px;
+  box-shadow: 8px 0 32px rgba(0,0,0,0.4);
 }
 
 @keyframes fadeUp {
