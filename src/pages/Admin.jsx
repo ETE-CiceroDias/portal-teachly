@@ -171,7 +171,7 @@ function ExportPanel() {
     <div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {Object.entries(TURMAS).map(([k,t])=>(
-          <button key={k} onClick={()=>setTurma(k)} style={{padding:'8px 16px',borderRadius:10,cursor:'pointer',fontWeight:600,fontSize:'0.83rem',fontFamily:'inherit',background:turma===k?`${t.cor}22`:'#1a0f2e',border:`1px solid ${turma===k?t.cor+'66':'#2a1650'}`,color:turma===k?t.cor:'#6b5a8a'}}>
+          <button key={k} onClick={()=>setTurma(k)} style={{padding:'8px 16px',borderRadius:10,cursor:'pointer',fontWeight:600,fontSize:'0.83rem',fontFamily:'inherit',background:turma===k?`${t.cor}22`:'var(--surface2)',border:`1px solid ${turma===k?t.cor+'66':'var(--border)'}`,color:turma===k?t.cor:'var(--text3)'}}>
             <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:t.cor,marginRight:6}}/>{t.modulo} · {t.label}
           </button>
         ))}
@@ -185,14 +185,12 @@ function ExportPanel() {
           <Btn variant="ghost" onClick={exportGruposCSV}  loading={loading.csv_grupos}>👥 Grupos</Btn>
           <Btn variant="ghost" onClick={exportAtivCSV}    loading={loading.csv_ativ}>📝 Atividades</Btn>
           <Btn variant="ghost" onClick={exportEventosCSV} loading={loading.csv_eventos}>📅 Calendário</Btn>
-          <Btn variant="ghost" onClick={exportDesafioCSV} loading={loading.csv_desafio}>🏆 Desafio UX</Btn>
         </div>
       </Section>
       <Section icon={<FileArrowDown size={20} weight="duotone" />} title="PDF para Impressão" subtitle="Abre no navegador para imprimir" accent="#e879f9">
         <div style={btnRow}>
           <Btn variant="ghost" onClick={exportFreqPDF}    loading={loading.pdf_freq}>📋 Frequência PDF</Btn>
           <Btn variant="ghost" onClick={exportGruposPDF}  loading={loading.pdf_grupos}>👥 Grupos PDF</Btn>
-          <Btn variant="ghost" onClick={exportDesafioPDF} loading={loading.pdf_desafio}>🏆 Desafio UX PDF</Btn>
         </div>
       </Section>
       <Log entries={log}/>
@@ -311,14 +309,14 @@ function ImportPanel() {
     <div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {turmas.map(t=>(
-          <button key={t.key} onClick={()=>setTurma(t.key)} style={{padding:'8px 16px',borderRadius:10,cursor:'pointer',fontWeight:600,fontSize:'0.83rem',fontFamily:'inherit',background:turma===t.key?`${t.cor}22`:'#1a0f2e',border:`1px solid ${turma===t.key?t.cor+'66':'#2a1650'}`,color:turma===t.key?t.cor:'#6b5a8a'}}>
+          <button key={t.key} onClick={()=>setTurma(t.key)} style={{padding:'8px 16px',borderRadius:10,cursor:'pointer',fontWeight:600,fontSize:'0.83rem',fontFamily:'inherit',background:turma===t.key?`${t.cor}22`:'var(--surface2)',border:`1px solid ${turma===t.key?t.cor+'66':'var(--border)'}`,color:turma===t.key?t.cor:'var(--text3)'}}>
             <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:t.cor,marginRight:6}}/>{t.modulo} · {t.label}
           </button>
         ))}
       </div>
 
       <Section icon={<FileArrowUp size={20} weight="duotone" />} title="Importar Lista de Alunos" subtitle="CSV com coluna 'nome' (e opcionalmente 'matricula')" accent="#4ade80">
-        <div style={{fontSize:'0.78rem',color:'#6b5a8a',marginBottom:12,fontFamily:'monospace',background:'#080212',borderRadius:8,padding:'8px 12px'}}>
+        <div style={{fontSize:'0.78rem',color:'var(--text3)',marginBottom:12,fontFamily:'monospace',background:'var(--surface2)',borderRadius:8,padding:'8px 12px'}}>
           nome,matricula{'\n'}Ana Silva,2025001{'\n'}João Costa,2025002
         </div>
         <UploadBtn id="up-alunos" loading={loading.alunos} accent="#4ade80">📂 Selecionar CSV de alunos</UploadBtn>
@@ -326,7 +324,7 @@ function ImportPanel() {
       </Section>
 
       <Section icon={<CalendarBlank size={20} weight="duotone" />} title="Importar Eventos do Calendário" subtitle="CSV: data (YYYY-MM-DD), titulo, hora, tipo" accent="#fbbf24">
-        <div style={{fontSize:'0.78rem',color:'#6b5a8a',marginBottom:12,fontFamily:'monospace',background:'#080212',borderRadius:8,padding:'8px 12px'}}>
+        <div style={{fontSize:'0.78rem',color:'var(--text3)',marginBottom:12,fontFamily:'monospace',background:'var(--surface2)',borderRadius:8,padding:'8px 12px'}}>
           data,titulo,hora,tipo{'\n'}2025-04-01,Prova DCU,18:40,prova
         </div>
         <UploadBtn id="up-eventos" loading={loading.eventos} accent="#fbbf24">📂 Selecionar CSV de eventos</UploadBtn>
@@ -343,7 +341,7 @@ function ImportPanel() {
 
       <Section icon={<BookOpen size={20} weight="duotone" />} title="Importar Conteúdo das Disciplinas" subtitle={`${turmaAtiva?.label||'—'} · courses.js → banco`} accent="#c084fc">
         {discsParaImportar.length===0 ? (
-          <div style={{color:'#6b5a8a',fontSize:'0.85rem'}}>Nenhuma disciplina nesta turma. Crie em <strong>Disciplinas &amp; Turmas</strong> primeiro.</div>
+          <div style={{color:'var(--text3)',fontSize:'0.85rem'}}>Nenhuma disciplina nesta turma. Crie em <strong>Disciplinas &amp; Turmas</strong> primeiro.</div>
         ):(
           <>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10,marginBottom:16}}>
@@ -351,11 +349,11 @@ function ImportPanel() {
                 const match=Object.values(COURSES).find(c=>c.key===disc.key||c.code===disc.code||c.fullname?.toLowerCase()===disc.label?.toLowerCase()||c.label?.toLowerCase()===disc.label?.toLowerCase());
                 const temPlano=disc.blocos?.length>0;
                 return (
-                  <div key={disc.id} style={{background:temPlano?'rgba(192,132,252,0.07)':'#0d0618',border:`1px solid ${temPlano?'#c084fc40':'#2a1650'}`,borderRadius:12,padding:'12px 14px'}}>
+                  <div key={disc.id} style={{background:temPlano?'rgba(192,132,252,0.07)':'#0d0618',border:`1px solid ${temPlano?'#c084fc40':'var(--border)'}`,borderRadius:12,padding:'12px 14px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                       <div style={{width:8,height:8,borderRadius:'50%',background:disc.cor,flexShrink:0}}/>
-                      <div style={{fontWeight:700,color:'#f0eaff',fontSize:'0.85rem',flex:1}}>{disc.label}</div>
-                      {disc.code&&<span style={{fontSize:'0.68rem',fontFamily:'monospace',color:'#6b5a8a'}}>{disc.code}</span>}
+                      <div style={{fontWeight:700,color:'var(--text)',fontSize:'0.85rem',flex:1}}>{disc.label}</div>
+                      {disc.code&&<span style={{fontSize:'0.68rem',fontFamily:'monospace',color:'var(--text3)'}}>{disc.code}</span>}
                     </div>
                     <div style={{fontSize:'0.72rem',marginBottom:10,color:temPlano?'#4ade80':match?'#c084fc':'#f87171'}}>
                       {temPlano?`✓ ${disc.blocos.length} bloco(s) importado(s)`:match?`📋 "${match.fullname}" disponível`:`⚠ Sem correspondência — key="${disc.key}"`}
@@ -365,10 +363,10 @@ function ImportPanel() {
                 );
               })}
             </div>
-            <div style={{background:'#0d0618',border:'1px solid #2a1650',borderRadius:12,padding:'14px 16px',display:'flex',flexWrap:'wrap',gap:10,alignItems:'center'}}>
+            <div style={{background:'var(--surface)',border:'1px solid #2a1650',borderRadius:12,padding:'14px 16px',display:'flex',flexWrap:'wrap',gap:10,alignItems:'center'}}>
               <div style={{flex:1,minWidth:160}}>
-                <div style={{fontWeight:700,color:'#f0eaff',fontSize:'0.83rem',marginBottom:2}}>Importar em lote</div>
-                <div style={{fontSize:'0.73rem',color:'#6b5a8a'}}>Turma ativa: {discsParaImportar.length} disc(s) · Todas as turmas: {getAllDiscs().length} disc(s)</div>
+                <div style={{fontWeight:700,color:'var(--text)',fontSize:'0.83rem',marginBottom:2}}>Importar em lote</div>
+                <div style={{fontSize:'0.73rem',color:'var(--text3)'}}>Turma ativa: {discsParaImportar.length} disc(s) · Todas as turmas: {getAllDiscs().length} disc(s)</div>
               </div>
               <Btn onClick={importarTodas} accent="#c084fc">📥 Importar desta turma</Btn>
               <Btn onClick={importarTodasGlobal} accent="#e879f9" variant="ghost">🌐 Importar todas as turmas</Btn>
@@ -442,11 +440,11 @@ function ConteudoPanel() {
   const addAula=(bi)=>setBlocos(b=>b.map((bl,i)=>i===bi?{...bl,aulas:[...(bl.aulas||[]),{id:`AULA ${(bl.aulas?.length||0)+1}`,titulo:'Nova aula',teoria:'',pratica:'',recurso:'',obs:'',plano_b:'',conexao:''}]}:bl));
   const removeAula=(bi,ai)=>setBlocos(b=>b.map((bl,i)=>i===bi?{...bl,aulas:bl.aulas.filter((_,j)=>j!==ai)}:bl));
 
-  const fs={width:'100%',background:'#080212',border:'1px solid #2a1650',borderRadius:8,padding:'8px 12px',color:'#f0eaff',fontSize:'0.82rem',fontFamily:'inherit',resize:'vertical',outline:'none',boxSizing:'border-box'};
-  const ls={fontSize:'0.72rem',color:'#6b5a8a',marginBottom:4,display:'block',fontWeight:700,letterSpacing:'0.05em',textTransform:'uppercase'};
+  const fs={width:'100%',background:'var(--surface2)',border:'1px solid #2a1650',borderRadius:8,padding:'8px 12px',color:'var(--text)',fontSize:'0.82rem',fontFamily:'inherit',resize:'vertical',outline:'none',boxSizing:'border-box'};
+  const ls={fontSize:'0.72rem',color:'var(--text3)',marginBottom:4,display:'block',fontWeight:700,letterSpacing:'0.05em',textTransform:'uppercase'};
 
   if (!turmaAtiva||discs.length===0) return (
-    <div style={{padding:40,textAlign:'center',color:'#6b5a8a'}}>
+    <div style={{padding:40,textAlign:'center',color:'var(--text3)'}}>
       Nenhuma disciplina encontrada. Crie em <strong>Disciplinas &amp; Turmas</strong> primeiro.
     </div>
   );
@@ -476,8 +474,8 @@ function ConteudoPanel() {
         <div style={{background:'#120820',border:'1px solid #2a1650',borderRadius:14,padding:'16px 20px',marginBottom:16}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
             <div>
-              <div style={{fontWeight:700,color:'#f0eaff',fontSize:'1rem'}}>{discAtiva.label}</div>
-              <div style={{fontSize:'0.75rem',color:'#6b5a8a',marginTop:2}}>
+              <div style={{fontWeight:700,color:'var(--text)',fontSize:'1rem'}}>{discAtiva.label}</div>
+              <div style={{fontSize:'0.75rem',color:'var(--text3)',marginTop:2}}>
                 {blocos?.length||0} bloco(s) · {blocos?.reduce((s,b)=>s+(b.aulas?.length||0),0)||0} aula(s) · {discAtiva.blocos?.length?'✓ Salvo no banco':'Sem conteúdo salvo'}
               </div>
             </div>
@@ -506,9 +504,9 @@ function ConteudoPanel() {
               <textarea value={bloco.foco||''} onChange={e=>editBloco(bi,'foco',e.target.value)} style={fs} rows={2} placeholder="Objetivo deste bloco..."/>
             </div>
             {(bloco.aulas||[]).map((aula,ai)=>(
-              <div key={ai} style={{background:'#0d0618',border:'1px solid #1e0a40',borderRadius:10,padding:'12px 14px',marginBottom:10}}>
+              <div key={ai} style={{background:'var(--surface)',border:'1px solid #1e0a40',borderRadius:10,padding:'12px 14px',marginBottom:10}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-                  <div style={{width:22,height:22,borderRadius:6,background:'#1e0a40',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.7rem',fontWeight:700,color:'#6b5a8a',flexShrink:0}}>{ai+1}</div>
+                  <div style={{width:22,height:22,borderRadius:6,background:'#1e0a40',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.7rem',fontWeight:700,color:'var(--text3)',flexShrink:0}}>{ai+1}</div>
                   <input value={aula.id||''} onChange={e=>editAula(bi,ai,'id',e.target.value)} style={{...fs,width:90,padding:'4px 8px',fontFamily:'monospace',fontSize:'0.72rem',color:'#c084fc'}} placeholder="AULA 01"/>
                   <input value={aula.titulo||''} onChange={e=>editAula(bi,ai,'titulo',e.target.value)} style={{...fs,flex:1,padding:'4px 10px',fontWeight:600}} placeholder="Título da aula"/>
                   <button onClick={()=>removeAula(bi,ai)} style={{background:'none',border:'none',cursor:'pointer',color:'#f87171',fontSize:'1rem'}}>✕</button>
@@ -523,7 +521,7 @@ function ConteudoPanel() {
                 </div>
               </div>
             ))}
-            <button onClick={()=>addAula(bi)} style={{background:'none',border:'1px dashed #2a1650',borderRadius:8,color:'#6b5a8a',cursor:'pointer',fontSize:'0.8rem',padding:'8px 16px',width:'100%',fontFamily:'inherit',marginTop:4}}>
+            <button onClick={()=>addAula(bi)} style={{background:'none',border:'1px dashed #2a1650',borderRadius:8,color:'var(--text3)',cursor:'pointer',fontSize:'0.8rem',padding:'8px 16px',width:'100%',fontFamily:'inherit',marginTop:4}}>
               + Adicionar aula ao Bloco {bi+1}
             </button>
           </div>

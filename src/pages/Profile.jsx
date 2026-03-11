@@ -308,10 +308,14 @@ export function Profile({ theme, onToggleTheme, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const ADMIN_EMAIL = 'samarasilvia.educa@gmail.com';
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data:{ user } }) => {
       if (!user) { setLoading(false); return; }
+      if (user.email === ADMIN_EMAIL) setIsAdmin(true);
       supabase.from('usuarios').select('*').eq('id', user.id).maybeSingle()
         .then(({ data: perfil }) => {
           if (perfil) setData(d => ({ ...d, ...perfil }));
@@ -404,14 +408,17 @@ export function Profile({ theme, onToggleTheme, onLogout }) {
             <div className="profile-card">
               <div className="profile-card-title" style={{display:'flex',alignItems:'center',gap:6}}><EnvelopeSimple size={14} />Redes Sociais</div>
               {[
-                { key:'instagram', icon:<InstagramLogo size={13} />, label:'Instagram', ph:'@seu.perfil' },
-                { key:'linkedin',  icon:<LinkedinLogo size={13} />,  label:'LinkedIn',  ph:'linkedin.com/in/...' },
-                { key:'github',    icon:<GithubLogo size={13} />,    label:'GitHub',    ph:'github.com/...' },
-                { key:'email',     icon:<EnvelopeSimple size={13} />,label:'E-mail',    ph:'seu@email.com' },
+                { key:'instagram', label:'Instagram',  ph:'@seu.perfil' },
+                { key:'linkedin',  label:'LinkedIn',   ph:'linkedin.com/in/...' },
+                { key:'github',    label:'GitHub',     ph:'github.com/...' },
+                { key:'email',     label:'E-mail',     ph:'seu@email.com' },
               ].map(s => (
-                <input key={s.key} className="profile-input"
-                  placeholder={`${s.icon} ${s.label} — ${s.ph}`}
-                  value={data[s.key]||''} onChange={e=>set(s.key,e.target.value)} />
+                <div key={s.key} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--text3)', marginBottom:3 }}>{s.label}</div>
+                  <input key={s.key} className="profile-input"
+                    placeholder={s.ph}
+                    value={data[s.key]||''} onChange={e=>set(s.key,e.target.value)} />
+                </div>
               ))}
             </div>
           </div>
@@ -427,17 +434,37 @@ export function Profile({ theme, onToggleTheme, onLogout }) {
       )}
 
       {/* ── Aba: Turmas & Disciplinas ── */}
+      {/* ── Aba: Turmas & Disciplinas ── */}
       {tab === 'turmas' && <GerenciarDiscs />}
 
       {/* ── Aba: Painel Admin ── */}
-      {tab === 'admin' && <Admin />}
+      {tab === 'admin' && (
+        isAdmin ? <Admin /> : (
+          <div style={{ textAlign:'center', padding:'48px 20px', color:'var(--text3)' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+            <div style={{ fontWeight: 700, fontSize:'1.1rem', color:'var(--text)', marginBottom: 6 }}>Acesso restrito</div>
+            <div style={{ fontSize:'0.875rem' }}>Apenas a administradora da organização tem acesso ao painel administrativo.</div>
+          </div>
+        )
+      )}
+
+      {/* ── Aba: Convite ── */}
+      {tab === 'convite' && <ConviteOrg org={org} />}
 
       {/* ── Aba: Conta & App ── */}
       {tab === 'conta' && (
         <div style={{ display:'flex', flexDirection:'column', gap:16, maxWidth:700, width:'100%' }}>
 
-          {/* Editar Org */}
-          {org && <EditarOrg org={org} reload={reload} />}
+          {/* Editar Org — só admin */}
+          {org && isAdmin && <EditarOrg org={org} reload={reload} />}
+          {org && !isAdmin && (
+            <div className="profile-card" style={{ opacity: 0.5, pointerEvents:'none', userSelect:'none' }}>
+              <div className="profile-card-title" style={{display:'flex',alignItems:'center',gap:6}}><Buildings size={14} />Dados da Organização</div>
+              <div style={{ fontSize:'0.85rem', color:'var(--text3)', padding:'8px 0' }}>
+                🔒 Somente a administradora pode editar os dados da organização.
+              </div>
+            </div>
+          )}
 
           {/* Aparência */}
           <div className="profile-card">
