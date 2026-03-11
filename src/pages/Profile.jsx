@@ -438,15 +438,7 @@ export function Profile({ theme, onToggleTheme, onLogout }) {
       {tab === 'turmas' && <GerenciarDiscs />}
 
       {/* ── Aba: Painel Admin ── */}
-      {tab === 'admin' && (
-        isAdmin ? <Admin /> : (
-          <div style={{ textAlign:'center', padding:'48px 20px', color:'var(--text3)' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
-            <div style={{ fontWeight: 700, fontSize:'1.1rem', color:'var(--text)', marginBottom: 6 }}>Acesso restrito</div>
-            <div style={{ fontSize:'0.875rem' }}>Apenas a administradora da organização tem acesso ao painel administrativo.</div>
-          </div>
-        )
-      )}
+      {tab === 'admin' && <Admin />}
 
       {/* ── Aba: Convite ── */}
       {tab === 'convite' && <ConviteOrg org={org} />}

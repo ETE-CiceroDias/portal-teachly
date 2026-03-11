@@ -3,14 +3,25 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 const CORES = ['#7c3aed','#a855f7','#c084fc','#e879f9','#60a5fa','#4ade80','#fbbf24','#fb923c','#f87171','#2dd4bf'];
-const DISC_SUGESTOES = [
+const DISC_SUGESTOES_DESIGN = [
   { nome:'Design Centrado no Usuário', codigo:'DE_232', cor:'#7c3aed' },
   { nome:'Design Thinking',            codigo:'DE_233', cor:'#c084fc' },
   { nome:'Projeto Integrador I',       codigo:'DS_PI',  cor:'#e879f9' },
-  { nome:'Programação Web',            codigo:'DS_PW',  cor:'#60a5fa' },
   { nome:'Design de Interfaces Mobile',codigo:'DE_242', cor:'#fbbf24' },
-  { nome:'Programação Web — Módulo 3', codigo:'PROG3',  cor:'#4ade80' },
+  { nome:'Fotografia e Imagem',        codigo:'DE_FT',  cor:'#fb923c' },
+  { nome:'Identidade Visual',          codigo:'DE_IV',  cor:'#a78bfa' },
 ];
+
+const DISC_SUGESTOES_DS = [
+  { nome:'Programação Web',            codigo:'DS_PW',  cor:'#60a5fa' },
+  { nome:'Banco de Dados',             codigo:'DS_BD',  cor:'#34d399' },
+  { nome:'Programação Orientada a Obj',codigo:'DS_POO', cor:'#f87171' },
+  { nome:'Projeto Integrador I',       codigo:'DS_PI',  cor:'#e879f9' },
+  { nome:'Redes de Computadores',      codigo:'DS_RC',  cor:'#fbbf24' },
+  { nome:'Desenvolvimento Mobile',     codigo:'DS_MOB', cor:'#818cf8' },
+];
+
+const DISC_SUGESTOES = [...DISC_SUGESTOES_DESIGN, ...DISC_SUGESTOES_DS];
 
 // ── Helpers de UI ─────────────────────────────────────────────
 function Field({ label, children }) {
@@ -279,8 +290,66 @@ function StepTurmas({ onNext, onBack }) {
   );
 }
 
+// ── Tela 2b: Área de ensino ─────────────────────────────────────
+function StepArea({ onNext, onBack }) {
+  const [area, setArea] = useState(null);
+  const AREAS = [
+    {
+      id: 'design',
+      emoji: '🎨',
+      titulo: 'Design Gráfico',
+      desc: 'Design Centrado no Usuário, Design Thinking, Identidade Visual, Interfaces...',
+      cor: '#c084fc',
+    },
+    {
+      id: 'ds',
+      emoji: '💻',
+      titulo: 'Desenvolvimento de Sistemas',
+      desc: 'Programação Web, Banco de Dados, POO, Redes, Mobile...',
+      cor: '#60a5fa',
+    },
+    {
+      id: 'ambos',
+      emoji: '⚡',
+      titulo: 'Ambas as áreas',
+      desc: 'Leciono disciplinas de Design e Desenvolvimento.',
+      cor: '#4ade80',
+    },
+  ];
+  return (
+    <div>
+      <div style={{ fontSize:'2rem', marginBottom:8 }}>🎓</div>
+      <h2 style={{ fontFamily:'DM Serif Display, serif', fontSize:'1.5rem', color:'#f0eaff', marginBottom:6 }}>Sua área de ensino</h2>
+      <p style={{ color:'#6b5a8a', fontSize:'0.875rem', marginBottom:24, lineHeight:1.6 }}>
+        Isso vai personalizar as sugestões de disciplinas e turmas para você.
+      </p>
+      <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:28 }}>
+        {AREAS.map(a => (
+          <button key={a.id} onClick={() => setArea(a.id)} style={{
+            padding:'16px 18px', borderRadius:14, cursor:'pointer', fontFamily:'inherit',
+            border:`1.5px solid ${area===a.id ? a.cor : '#2a1650'}`,
+            background: area===a.id ? `${a.cor}15` : 'rgba(255,255,255,0.02)',
+            textAlign:'left', transition:'all 0.15s',
+            boxShadow: area===a.id ? `0 0 0 1px ${a.cor}44` : 'none',
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+              <span style={{ fontSize:'1.3rem' }}>{a.emoji}</span>
+              <span style={{ fontWeight:700, color: area===a.id ? a.cor : '#f0eaff', fontSize:'0.95rem' }}>{a.titulo}</span>
+            </div>
+            <div style={{ color:'#6b5a8a', fontSize:'0.78rem', paddingLeft:34, lineHeight:1.5 }}>{a.desc}</div>
+          </button>
+        ))}
+      </div>
+      <div style={{ display:'flex', gap:10 }}>
+        <Btn variant="ghost" onClick={onBack}>← Voltar</Btn>
+        <Btn disabled={!area} onClick={() => onNext(area)}>Próximo →</Btn>
+      </div>
+    </div>
+  );
+}
+
 // ── Tela 3: Disciplinas ────────────────────────────────────────
-function StepDiscs({ turmas, onNext, onBack }) {
+function StepDiscs({ turmas, area, onNext, onBack }) {
   const [byTurma, setByTurma] = useState(Object.fromEntries(turmas.map((_,i)=>[i,[]])));
   const [ativaTurma, setAtivaTurma] = useState(0);
   const discs = byTurma[ativaTurma]||[];
@@ -290,6 +359,10 @@ function StepDiscs({ turmas, onNext, onBack }) {
   const rem = i => upd(d=>d.filter((_,j)=>j!==i));
   const updD = (i,k,v) => upd(d=>d.map((x,j)=>j===i?{...x,[k]:v}:x));
   const ok = turmas.every((_,i)=>(byTurma[i]||[]).length>0);
+
+  const sugestoes = area === 'design' ? DISC_SUGESTOES_DESIGN
+    : area === 'ds' ? DISC_SUGESTOES_DS
+    : DISC_SUGESTOES;
   return (
     <div>
       <div style={{ fontSize:'2rem', marginBottom:8 }}>📚</div>
@@ -308,7 +381,7 @@ function StepDiscs({ turmas, onNext, onBack }) {
       <div style={{ marginBottom:16 }}>
         <div style={{ fontSize:'0.72rem', color:'#6b5a8a', fontWeight:700, letterSpacing:2, marginBottom:8 }}>SUGESTÕES RÁPIDAS</div>
         <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-          {DISC_SUGESTOES.map(s=>{
+          {sugestoes.map(s=>{
             const ativa = discs.some(d=>d.codigo===s.codigo);
             return (
               <button key={s.codigo} onClick={()=>addSug(s)} style={{
@@ -380,11 +453,12 @@ export function Onboarding({ onDone, onLogout }) {
   const urlConvite   = new URLSearchParams(window.location.search).get('convite') || '';
   const convitePrefill = urlConvite || savedConvite;
 
-  // Fluxo: 'escolha' → 'confirmarEntrada' | 'criarOrg' → 'turmas' → 'discs' → 'saving'
+  // Fluxo: 'escolha' → 'confirmarEntrada' | 'criarOrg' → 'area' → 'turmas' → 'discs' → 'saving'
   const [tela,      setTela]    = useState('escolha');
   const [orgFound,  setOrgFound] = useState(null);  // org encontrada pelo código
   const [orgData,   setOrgData]  = useState(null);  // dados da nova org
   const [turmas,    setTurmas]   = useState([]);
+  const [area,      setArea]     = useState(null);   // 'design' | 'ds' | 'ambos'
   const [status,    setStatus]   = useState('saving');
   const [joiningErr,setJoiningErr]=useState('');
   const [joiningLoading,setJoiningLoading]=useState(false);
@@ -469,7 +543,7 @@ export function Onboarding({ onDone, onLogout }) {
   };
 
   const steps = ['Organização','Turmas','Disciplinas'];
-  const stepIdx = { criarOrg:0, turmas:1, discs:2 };
+  const stepIdx = { criarOrg:0, area:1, turmas:2, discs:3 };
 
   return (
     <div style={{
@@ -509,7 +583,7 @@ export function Onboarding({ onDone, onLogout }) {
       </div>
 
       {/* Steps (só quando criando org) */}
-      {fluxo==='criar' && ['criarOrg','turmas','discs'].includes(tela) && (
+      {fluxo==='criar' && ['criarOrg','area','turmas','discs'].includes(tela) && (
         <div style={{ display:'flex', gap:0, marginBottom:28, alignItems:'center', position:'relative', zIndex:1 }}>
           {steps.map((l,i)=>{
             const cur = stepIdx[tela]??0;
@@ -536,9 +610,10 @@ export function Onboarding({ onDone, onLogout }) {
       <div style={cardStyle}>
         {tela==='escolha'         && <StepEscolha convitePrefill={convitePrefill} onCriar={()=>{setFluxo('criar');setTela('criarOrg');}} onEntrar={handleEntrar} />}
         {tela==='confirmarEntrada'&& <StepConfirmarEntrada org={orgFound} onConfirm={confirmarEntrada} onBack={()=>setTela('escolha')} loading={joiningLoading} err={joiningErr} />}
-        {tela==='criarOrg'        && <StepOrg onNext={d=>{setOrgData(d);setTela('turmas');}} onBack={()=>setTela('escolha')} />}
-        {tela==='turmas'          && <StepTurmas onNext={t=>{setTurmas(t);setTela('discs');}} onBack={()=>setTela('criarOrg')} />}
-        {tela==='discs'           && <StepDiscs turmas={turmas} onNext={save} onBack={()=>setTela('turmas')} />}
+        {tela==='criarOrg'        && <StepOrg onNext={d=>{setOrgData(d);setTela('area');}} onBack={()=>setTela('escolha')} />}
+        {tela==='area'            && <StepArea onNext={a=>{setArea(a);setTela('turmas');}} onBack={()=>setTela('criarOrg')} />}
+        {tela==='turmas'          && <StepTurmas onNext={t=>{setTurmas(t);setTela('discs');}} onBack={()=>setTela('area')} />}
+        {tela==='discs'           && <StepDiscs turmas={turmas} area={area} onNext={save} onBack={()=>setTela('turmas')} />}
         {tela==='saving'          && <StepSaving status={status} tipo={fluxo} />}
       </div>
     </div>
