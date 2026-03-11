@@ -371,7 +371,7 @@ function StepSaving({ status, tipo }) {
 }
 
 // ── Wizard principal ───────────────────────────────────────────
-export function Onboarding({ onDone }) {
+export function Onboarding({ onDone, onLogout }) {
   // Lê convite do localStorage (colocado pelo Login após signup com link)
   const savedConvite = localStorage.getItem('teachly_convite') || '';
   // Também lê da URL caso o professor já estava logado e clicou no link
@@ -473,7 +473,25 @@ export function Onboarding({ onDone }) {
       minHeight:'100vh', background:'#0a0414',
       display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
       padding:'24px 20px', fontFamily:'DM Sans, sans-serif',
+      position:'relative',
     }}>
+      {/* Voltar ao login */}
+      {tela === 'escolha' && onLogout && (
+        <button onClick={onLogout} style={{
+          position:'absolute', top:20, left:20,
+          background:'none', border:'none', cursor:'pointer',
+          color:'#6b5a8a', fontSize:'0.82rem', fontFamily:'inherit',
+          display:'flex', alignItems:'center', gap:6,
+          padding:'6px 10px', borderRadius:8,
+          transition:'color 0.2s',
+        }}
+        onMouseEnter={e=>e.currentTarget.style.color='#a78bfa'}
+        onMouseLeave={e=>e.currentTarget.style.color='#6b5a8a'}
+        >
+          ← Voltar ao login
+        </button>
+      )}
+
       {/* Logo */}
       <div style={{ marginBottom:32, textAlign:'center' }}>
         <div style={{

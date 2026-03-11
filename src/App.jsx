@@ -86,7 +86,7 @@ function AppShell({ user }) {
     </div>
   );
 
-  if (!pronto) return <Onboarding onDone={() => reload()} />;
+  if (!pronto) return <Onboarding onDone={() => reload()} onLogout={handleLogout} />;
 
   const turmaAtiva   = turmas.find(t => t.id === activeTurma) || turmas[0];
   const turmaKey     = turmaAtiva?.key || turmaAtiva?.id || '';
