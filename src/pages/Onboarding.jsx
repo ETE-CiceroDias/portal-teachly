@@ -488,11 +488,16 @@ export function Onboarding({ onDone, onLogout }) {
   };
 
   const confirmarEntrada = async () => {
+    // Antes de entrar, perguntar a área de ensino
+    setTela('area');
+  };
+
+  const salvarEntrada = async (areaEscolhida) => {
     setJoiningLoading(true);
     setJoiningErr('');
+    setTela('saving'); setStatus('saving');
     try {
       const { data:{ user } } = await supabase.auth.getUser();
-      // Verifica se já é membro
       const { data: existente } = await supabase
         .from('membros_organizacao')
         .select('id')
@@ -504,12 +509,13 @@ export function Onboarding({ onDone, onLogout }) {
           .insert({ organizacao_id: orgFound.id, usuario_id: user.id, papel: 'professor' });
         if (error) throw error;
       }
+      await supabase.from('usuarios').upsert({ id: user.id, email: user.email, area: areaEscolhida || null });
       localStorage.removeItem('teachly_convite');
-      setTela('saving');
       setStatus('done');
       setTimeout(() => onDone(), 1500);
     } catch(e) {
       setJoiningErr(e.message || 'Erro ao entrar na organização.');
+      setTela('confirmarEntrada');
     } finally {
       setJoiningLoading(false);
     }
@@ -624,7 +630,14 @@ export function Onboarding({ onDone, onLogout }) {
         {tela==='escolha'         && <StepEscolha convitePrefill={convitePrefill} onCriar={()=>{setFluxo('criar');setTela('criarOrg');}} onEntrar={handleEntrar} />}
         {tela==='confirmarEntrada'&& <StepConfirmarEntrada org={orgFound} onConfirm={confirmarEntrada} onBack={()=>setTela('escolha')} loading={joiningLoading} err={joiningErr} />}
         {tela==='criarOrg'        && <StepOrg onNext={d=>{setOrgData(d);setTela('area');}} onBack={()=>setTela('escolha')} />}
-        {tela==='area'            && <StepArea onNext={a=>{setArea(a);setTela('turmas');}} onBack={()=>setTela('criarOrg')} />}
+        {tela==='area'            && <StepArea
+            onNext={a => {
+              setArea(a);
+              if (fluxo === 'entrar') salvarEntrada(a);
+              else setTela('turmas');
+            }}
+            onBack={() => fluxo === 'entrar' ? setTela('confirmarEntrada') : setTela('criarOrg')}
+          />}
         {tela==='turmas'          && <StepTurmas area={area} onNext={t=>{setTurmas(t);setTela('discs');}} onBack={()=>setTela('area')} />}
         {tela==='discs'           && <StepDiscs turmas={turmas} area={area} onNext={save} onBack={()=>setTela('turmas')} />}
         {tela==='saving'          && <StepSaving status={status} tipo={fluxo} />}
