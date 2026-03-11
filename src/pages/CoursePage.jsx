@@ -559,7 +559,6 @@ export function CoursePage({ courseKey, discId, discBlocos, discLabel, discCode,
           onToggle={onToggle}
           onSave={onSave}
           onReorder={(blocoIdx, fi, ti) => onReorder(blocoIdx, fi, ti)}
-          editMode={editMode}
           onUpdateBloco={updated => handleUpdateBloco(bi, updated)}
           onDeleteBloco={() => handleDeleteBloco(bi)}
         />

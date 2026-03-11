@@ -223,6 +223,7 @@ a:hover { text-decoration: underline; }
 @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideLeft { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes modal-pop { from { opacity:0; transform:scale(0.93) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
 
 .anim-fade  { animation: fadeIn   0.25s ease both; }
 .anim-up    { animation: slideUp  0.3s  ease both; }
@@ -329,7 +330,7 @@ a:hover { text-decoration: underline; }
   position: fixed;
   top: 0; left: 0; bottom: 0;
   z-index: 100;
-  transition: transform var(--t);
+  transition: width 0.25s ease, transform var(--t);
   overflow-y: auto;
   overflow-x: hidden;
   backdrop-filter: blur(20px);
@@ -505,6 +506,7 @@ a:hover { text-decoration: underline; }
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.25s ease;
 }
 
 .page-wrap {
@@ -552,37 +554,50 @@ a:hover { text-decoration: underline; }
 
 /* ── Sidebar colapso ── */
 .sidebar-collapse-btn {
-  display: block;
-  position: absolute;
-  top: 50%;
-  right: -14px;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 0.65rem;
-  color: var(--text3);
-  z-index: 110;
+  display: none; /* hidden on desktop - we use topbar toggle instead */
+}
+
+/* Botão toggle na topbar do desktop */
+.topbar-toggle-btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text3);
+  font-size: 0.75rem;
+  flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
-.sidebar-collapse-btn:hover { background: var(--accent-faint); color: var(--accent3); }
+.topbar-toggle-btn:hover { background: var(--accent-faint); color: var(--accent3); }
+
+/* Topbar desktop — barra fixa no topo do conteúdo */
+.desktop-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 32px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  background: var(--bg);
+  backdrop-filter: blur(10px);
+}
+.desktop-topbar-spacer { flex: 1; }
 
 .sidebar.collapsed {
-  width: 0;
+  width: 0 !important;
   overflow: hidden;
   min-width: 0;
+  border-right: none;
 }
 .app-shell.sidebar-collapsed .main-content {
   margin-left: 0;
-}
-.app-shell.sidebar-collapsed .sidebar-collapse-btn {
-  right: -36px;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -834,6 +849,38 @@ a:hover { text-decoration: underline; }
   transition: background var(--t);
 }
 .aula-row:hover { background: var(--surface2); }
+
+/* Botões de ação por aula — discretos, aparecem no hover */
+.aula-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.aula-row:hover .aula-actions { opacity: 1; }
+.aula-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  line-height: 1;
+  color: var(--text3);
+  transition: background 0.1s;
+}
+.aula-action-btn:hover { background: var(--surface3); }
+.aula-action-del:hover { background: rgba(239,68,68,0.12); }
+
+/* Botões de ação do bloco */
+.bloco-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.bloco-head:hover .bloco-actions { opacity: 1; }
 
 .drag-handle { color: var(--muted); font-size: 14px; cursor: grab; flex-shrink: 0; }
 .drag-handle:active { cursor: grabbing; }
@@ -1556,6 +1603,7 @@ a:hover { text-decoration: underline; }
   .sidebar-overlay.open { opacity: 1; pointer-events: all; }
 
   .main-content { margin-left: 0; }
+  .desktop-topbar { display: none; }
 
   .mobile-topbar { display: flex; }
 

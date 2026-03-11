@@ -10,6 +10,7 @@ const TABS = [
   { id:'perfil', icon:<User size={15} />,          label:'Meu Perfil' },
   { id:'turmas', icon:<GraduationCap size={15} />, label:'Turmas & Disciplinas' },
   { id:'admin',  icon:<Wrench size={15} />,        label:'Painel Admin' },
+  { id:'convite',icon:<span style={{fontSize:'0.9em'}}>🔑</span>, label:'Convite' },
   { id:'conta',  icon:<Gear size={15} />,          label:'Conta & App' },
 ];
 
@@ -23,6 +24,104 @@ const TIPOS   = [
   { value:'curso',     label:'Curso Livre' },
   { value:'outro',     label:'Outro' },
 ];
+
+// ── Sub-aba: Link de convite da org ─────────────────────────
+function ConviteOrg({ org }) {
+  const [copied, setCopied] = useState(false);
+  const [regenerando, setRegenerando] = useState(false);
+  const [code, setCode] = useState(org?.codigo_convite || '');
+
+  const baseUrl = window.location.origin;
+  const link    = `${baseUrl}?convite=${code}`;
+
+  const copiarLink = () => {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const copiarCodigo = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied('code');
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const regenerar = async () => {
+    if (!org?.id) return;
+    setRegenerando(true);
+    const newCode = Math.random().toString(36).substring(2,8).toUpperCase();
+    const { error } = await supabase.from('organizacoes')
+      .update({ codigo_convite: newCode }).eq('id', org.id);
+    if (!error) setCode(newCode);
+    setRegenerando(false);
+  };
+
+  if (!org) return null;
+
+  return (
+    <div className="profile-card">
+      <div className="profile-card-title">🔑 Convite para a organização</div>
+      <div style={{ fontSize:'0.82rem', color:'var(--text3)', marginBottom:16, lineHeight:1.6 }}>
+        Compartilhe o link abaixo com outros professores para que eles entrem na organização <strong style={{color:'var(--text)'}}>{org.nome}</strong>.
+      </div>
+
+      {/* Link completo */}
+      <div style={{ marginBottom:12 }}>
+        <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text3)', letterSpacing:2, textTransform:'uppercase', marginBottom:6 }}>Link de convite</div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <div style={{
+            flex:1, background:'var(--surface2)', border:'1px solid var(--border)',
+            borderRadius:8, padding:'8px 12px', fontSize:'0.78rem', color:'var(--text3)',
+            fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+          }}>{link}</div>
+          <button onClick={copiarLink} style={{
+            background: copied === true ? 'var(--green-bg)' : 'var(--surface2)',
+            border:'1px solid var(--border)', borderRadius:8, padding:'8px 14px',
+            color: copied === true ? 'var(--green)' : 'var(--text2)',
+            fontSize:'0.8rem', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
+          }}>
+            {copied === true ? '✓ Copiado!' : '📋 Copiar link'}
+          </button>
+        </div>
+      </div>
+
+      {/* Código curto */}
+      <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+        <div>
+          <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text3)', letterSpacing:2, textTransform:'uppercase', marginBottom:6 }}>Ou compartilhe só o código</div>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <div style={{
+              background:'var(--surface2)', border:'1px solid var(--border)',
+              borderRadius:8, padding:'8px 16px', fontSize:'1.3rem', fontWeight:800,
+              color:'var(--accent3)', fontFamily:'monospace', letterSpacing:6,
+            }}>{code}</div>
+            <button onClick={copiarCodigo} style={{
+              background: copied === 'code' ? 'var(--green-bg)' : 'var(--surface2)',
+              border:'1px solid var(--border)', borderRadius:8, padding:'8px 12px',
+              color: copied === 'code' ? 'var(--green)' : 'var(--text3)',
+              fontSize:'0.78rem', cursor:'pointer',
+            }}>
+              {copied === 'code' ? '✓' : '📋'}
+            </button>
+            <button onClick={regenerar} disabled={regenerando} title="Gerar novo código (invalida o anterior)" style={{
+              background:'none', border:'1px solid var(--border)', borderRadius:8,
+              padding:'8px 12px', color:'var(--text3)', fontSize:'0.75rem',
+              cursor:'pointer', opacity: regenerando ? 0.5 : 1,
+            }}>
+              {regenerando ? '...' : '🔄 Novo código'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop:14, fontSize:'0.75rem', color:'var(--text3)', lineHeight:1.5 }}>
+        ⚠ Qualquer pessoa com este link pode entrar como professor. Use "Novo código" para invalidar o atual se necessário.
+      </div>
+    </div>
+  );
+}
 
 // ── Sub-aba: Editar Organização ──────────────────────────────
 function EditarOrg({ org, reload }) {

@@ -167,10 +167,28 @@ function AppShell({ user }) {
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
       <div className="main-content">
+        {/* Topbar mobile */}
         <div className="mobile-topbar">
           <button className="mobile-menu-btn" onClick={() => setSidebarOpen(o => !o)}>☰</button>
           <div className="mobile-brand">Teachly</div>
           <div style={{ marginLeft:'auto', fontSize:'0.8rem', color:'var(--text3)' }}>{turmaAtiva?.label}</div>
+        </div>
+        {/* Topbar desktop — só aparece em telas grandes */}
+        <div className="desktop-topbar">
+          <button
+            className="topbar-toggle-btn"
+            onClick={() => setSidebarCollapsed(c => !c)}
+            title={sidebarCollapsed ? 'Mostrar menu' : 'Esconder menu'}
+          >
+            {sidebarCollapsed ? '▶▶' : '◀◀'}
+          </button>
+          <div className="desktop-topbar-spacer" />
+          {turmaAtiva && (
+            <div style={{ fontSize:'0.78rem', color:'var(--text3)', display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ width:7, height:7, borderRadius:'50%', background:turmaAtiva.cor, display:'inline-block' }} />
+              {turmaAtiva.modulo} · {turmaAtiva.label}
+            </div>
+          )}
         </div>
         <div className="page-wrap">{renderPage()}</div>
       </div>
