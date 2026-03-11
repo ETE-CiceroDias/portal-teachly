@@ -111,7 +111,7 @@ export function Login() {
 
   return (
     <div style={S.wrap}>
-      <div style={S.card}>
+      <div style={{ ...S.card, position:'relative', zIndex:1 }}>
         {/* Logo */}
         <div style={S.logo}>
           <div style={S.gem}>T</div>

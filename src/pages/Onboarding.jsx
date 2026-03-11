@@ -74,11 +74,13 @@ function StepEscolha({ convitePrefill, onCriar, onEntrar }) {
     const c = code.trim().toUpperCase();
     if (c.length < 4) { setErr('Código inválido.'); return; }
     setLoading(true); setErr('');
-    const { data: org } = await supabase
+    // Busca com ilike E com trim para lidar com bpchar (espaços extras)
+    const { data: orgs } = await supabase
       .from('organizacoes')
-      .select('id, nome, cidade, estado, tipo')
-      .ilike('codigo_convite', c)
-      .maybeSingle();
+      .select('id, nome, cidade, estado, tipo, codigo_convite');
+    const org = (orgs || []).find(o =>
+      o.codigo_convite && o.codigo_convite.trim().toUpperCase() === c
+    );
     if (!org) { setErr('Código não encontrado. Verifique com seu coordenador.'); setLoading(false); return; }
     onEntrar(org, c);
     setLoading(false);
@@ -476,9 +478,6 @@ export function Onboarding({ onDone, onLogout }) {
       padding:'24px 20px', fontFamily:'DM Sans, sans-serif',
       position:'relative',
     }}>
-      {/* Blobs de luz — igual ao resto do app */}
-      <div className="blob-mid" aria-hidden="true" />
-      <div className="blob-tr"  aria-hidden="true" />
       {/* Voltar ao login */}
       {tela === 'escolha' && onLogout && (
         <button onClick={onLogout} style={{
