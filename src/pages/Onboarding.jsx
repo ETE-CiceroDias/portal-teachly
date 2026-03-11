@@ -235,9 +235,13 @@ function StepOrg({ onNext, onBack }) {
 }
 
 // ── Tela 2: Turmas ─────────────────────────────────────────────
-function StepTurmas({ onNext, onBack }) {
+function StepTurmas({ area, onNext, onBack }) {
+  const MODULOS_DESIGN = ['Módulo 1 — Fundamentos de Design','Módulo 2 — Processos Criativos','Módulo 3 — Projetos Avançados'];
+  const MODULOS_DS     = ['Módulo 1 — Lógica e Algoritmos','Módulo 2 — Desenvolvimento Web','Módulo 3 — Sistemas e Redes'];
+  const moduloSugestoes = area === 'design' ? MODULOS_DESIGN : area === 'ds' ? MODULOS_DS : [...MODULOS_DESIGN, ...MODULOS_DS];
+
   const [turmas, setTurmas] = useState([
-    { label:'Turma A', modulo:'Módulo 1', cor:'#c084fc', hasDesafio:true },
+    { label:'Turma A', modulo:'Módulo 1', cor:'#c084fc', hasDesafio: area === 'design' || area === 'ambos' },
   ]);
   const add = () => setTurmas(t=>[...t,{ label:'', modulo:'', cor:'#7c3aed', hasDesafio:false }]);
   const rem = i => setTurmas(t=>t.filter((_,j)=>j!==i));
@@ -259,6 +263,17 @@ function StepTurmas({ onNext, onBack }) {
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:'0.72rem', color:'#6b5a8a', fontWeight:700, marginBottom:5 }}>MÓDULO</div>
                 <Input value={t.modulo} onChange={e=>upd(i,'modulo',e.target.value)} placeholder="Módulo 1" />
+                {/* Sugestões rápidas de módulo */}
+                <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:6 }}>
+                  {moduloSugestoes.map(m => (
+                    <button key={m} onClick={()=>upd(i,'modulo',m.split(' — ')[0])} style={{
+                      padding:'3px 8px', borderRadius:99, fontSize:'0.7rem', fontWeight:600,
+                      cursor:'pointer', fontFamily:'inherit', border:'1px solid #2a1650',
+                      background: t.modulo === m.split(' — ')[0] ? 'rgba(124,58,237,0.2)' : 'transparent',
+                      color: t.modulo === m.split(' — ')[0] ? '#a855f7' : '#6b5a8a',
+                    }}>{m.split(' — ')[0]}</button>
+                  ))}
+                </div>
               </div>
             </div>
             <div style={{ marginBottom:10 }}>
@@ -454,6 +469,7 @@ export function Onboarding({ onDone, onLogout }) {
   const convitePrefill = urlConvite || savedConvite;
 
   // Fluxo: 'escolha' → 'confirmarEntrada' | 'criarOrg' → 'area' → 'turmas' → 'discs' → 'saving'
+  // (area vem ANTES de turmas para filtrar sugestões de disciplinas e nome de turmas)
   const [tela,      setTela]    = useState('escolha');
   const [orgFound,  setOrgFound] = useState(null);  // org encontrada pelo código
   const [orgData,   setOrgData]  = useState(null);  // dados da nova org
@@ -542,9 +558,6 @@ export function Onboarding({ onDone, onLogout }) {
     position:'relative', zIndex:1,
   };
 
-  const steps = ['Organização','Turmas','Disciplinas'];
-  const stepIdx = { criarOrg:0, area:1, turmas:2, discs:3 };
-
   return (
     <div style={{
       minHeight:'100vh', background:'#0a0414',
@@ -585,8 +598,8 @@ export function Onboarding({ onDone, onLogout }) {
       {/* Steps (só quando criando org) */}
       {fluxo==='criar' && ['criarOrg','area','turmas','discs'].includes(tela) && (
         <div style={{ display:'flex', gap:0, marginBottom:28, alignItems:'center', position:'relative', zIndex:1 }}>
-          {steps.map((l,i)=>{
-            const cur = stepIdx[tela]??0;
+          {['Organização','Área','Turmas','Disciplinas'].map((l,i)=>{
+            const cur = { criarOrg:0, area:1, turmas:2, discs:3 }[tela]??0;
             return (
               <div key={l} style={{ display:'flex', alignItems:'center' }}>
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
@@ -599,7 +612,7 @@ export function Onboarding({ onDone, onLogout }) {
                   }}>{i<cur?'✓':i+1}</div>
                   <div style={{ fontSize:'0.68rem', color:i===cur?'#a855f7':'#6b5a8a', fontWeight:i===cur?700:400 }}>{l}</div>
                 </div>
-                {i<2 && <div style={{ width:40, height:1, background:i<cur?'#7c3aed':'#2a1650', margin:'0 4px', marginBottom:18 }}/>}
+                {i<3 && <div style={{ width:32, height:1, background:i<cur?'#7c3aed':'#2a1650', margin:'0 4px', marginBottom:18 }}/>}
               </div>
             );
           })}
@@ -612,7 +625,7 @@ export function Onboarding({ onDone, onLogout }) {
         {tela==='confirmarEntrada'&& <StepConfirmarEntrada org={orgFound} onConfirm={confirmarEntrada} onBack={()=>setTela('escolha')} loading={joiningLoading} err={joiningErr} />}
         {tela==='criarOrg'        && <StepOrg onNext={d=>{setOrgData(d);setTela('area');}} onBack={()=>setTela('escolha')} />}
         {tela==='area'            && <StepArea onNext={a=>{setArea(a);setTela('turmas');}} onBack={()=>setTela('criarOrg')} />}
-        {tela==='turmas'          && <StepTurmas onNext={t=>{setTurmas(t);setTela('discs');}} onBack={()=>setTela('area')} />}
+        {tela==='turmas'          && <StepTurmas area={area} onNext={t=>{setTurmas(t);setTela('discs');}} onBack={()=>setTela('area')} />}
         {tela==='discs'           && <StepDiscs turmas={turmas} area={area} onNext={save} onBack={()=>setTela('turmas')} />}
         {tela==='saving'          && <StepSaving status={status} tipo={fluxo} />}
       </div>

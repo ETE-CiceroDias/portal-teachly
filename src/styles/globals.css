@@ -1169,6 +1169,8 @@ a:hover { text-decoration: underline; }
   animation: slideUp 0.25s ease;
   box-shadow: 0 32px 80px rgba(0,0,0,0.5);
   position: relative;
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
 }
 
 .modal-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
