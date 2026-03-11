@@ -496,7 +496,7 @@ function ConteudoPanel() {
           <div style={{padding:'14px 18px',borderBottom:'1px solid #1e0a40',background:'linear-gradient(90deg,#7c3aed10,transparent)',display:'flex',alignItems:'center',gap:10}}>
             <div style={{width:28,height:28,borderRadius:8,background:'#7c3aed20',border:'1px solid #7c3aed40',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,color:'#a855f7',fontSize:'0.8rem',flexShrink:0}}>B{bi+1}</div>
             <input value={bloco.titulo||''} onChange={e=>editBloco(bi,'titulo',e.target.value)} style={{...fs,flex:1,padding:'6px 10px',fontWeight:700,fontSize:'0.9rem'}} placeholder="Título do bloco"/>
-            <button onClick={()=>removeBloco(bi)} style={{background:'none',border:'none',cursor:'pointer',color:'#f87171',fontSize:'1.1rem',padding:'4px'}}>🗑</button>
+            <button onClick={()=>removeBloco(bi)} style={{width:28,height:28,borderRadius:8,border:'1px solid rgba(248,113,113,0.3)',background:'rgba(248,113,113,0.08)',cursor:'pointer',color:'#f87171',display:'flex',alignItems:'center',justifyContent:'center'}}><Trash size={13} /></button>
           </div>
           <div style={{padding:'14px 18px'}}>
             <div style={{marginBottom:14}}>

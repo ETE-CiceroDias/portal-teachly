@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { TURMAS, ALUNO_CORES } from '../data/turmas.js';
 import { TURMA_IDS } from '../data/ids.js';
-import { SquaresFour, ListBullets, CheckCircle, XCircle } from '@phosphor-icons/react';
+import { SquaresFour, ListBullets, CheckCircle, XCircle, Trash } from '@phosphor-icons/react';
 
 // Busca alunos matriculados nesta turma via tabela global alunos + matriculas
 async function getAlunosMatriculados(turmaId) {
@@ -374,7 +374,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
                     {a.matricula && <div style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>Matrícula: {a.matricula}</div>}
                   </div>
                   <button className="icon-btn-sm" onClick={() => { setEditAluno(i); setFormAluno({ nome: a.nome, matricula: a.matricula || '' }); }}>✏️</button>
-                  <button className="icon-btn-sm danger" onClick={() => excluirAluno(i)}>🗑️</button>
+                  <button className="icon-btn-sm danger" onClick={() => excluirAluno(i)} style={{display:"flex",alignItems:"center",justifyContent:"center"}}><Trash size={13} /></button>
                 </div>
               );
             })}
@@ -431,7 +431,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
                             title="Remover aula"
                             onClick={() => excluirAula(i)}
                             style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--surface3)', color: 'var(--text3)', border: '1px solid var(--border)', cursor: 'pointer' }}
-                          >🗑</button>
+                          ><Trash size={13} /></button>
                         </div>
                       </th>
                     ))}
@@ -457,7 +457,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
                             </div>
                             <div style={{ marginLeft: 'auto', display: 'flex', gap: 3 }}>
                               <button className="icon-btn-sm" style={{ width: 22, height: 22, fontSize: 11 }} onClick={() => { setEditAluno(ri); setFormAluno({ nome: a.nome, matricula: a.matricula || '' }); }}>✏️</button>
-                              <button className="icon-btn-sm danger" style={{ width: 22, height: 22, fontSize: 11 }} onClick={() => excluirAluno(ri)}>🗑️</button>
+                              <button className="icon-btn-sm danger" style={{ width: 22, height: 22, display:"flex",alignItems:"center",justifyContent:"center" }} onClick={() => excluirAluno(ri)}><Trash size={11} /></button>
                             </div>
                           </div>
                         </td>

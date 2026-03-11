@@ -6,6 +6,7 @@ import { useState, useRef } from 'react';
 import { AulaDetail } from './AulaDetail.jsx';
 import { ConfirmModal } from './ConfirmModal.jsx';
 import { aulaId } from '../store/storage.js';
+import { Trash } from '@phosphor-icons/react';
 
 // ── Card de Nota ─────────────────────────────────────────────
 function NotaRow({ aula, onEdit, onDelete }) {
@@ -30,9 +31,9 @@ function NotaRow({ aula, onEdit, onDelete }) {
         {aula.titulo}
       </span>
       <button onClick={onDelete} title="Remover nota"
-        style={{ background:'none', border:'none', cursor:'pointer', color:'var(--red)',
-          fontSize:'0.85rem', padding:'2px 4px', borderRadius:4, opacity:0.55, lineHeight:1 }}>
-        🗑
+        style={{ background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.25)', cursor:'pointer', color:'var(--red)',
+          padding:'3px 5px', borderRadius:6, opacity:0.7, lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <Trash size={12} />
       </button>
     </div>
   );
@@ -140,7 +141,7 @@ function AulaCard({
           onMouseEnter={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.color='var(--red)'; }}
           onMouseLeave={e => { e.currentTarget.style.opacity='0.4'; e.currentTarget.style.color='var(--text3)'; }}
         >
-          🗑
+          <Trash size={13} />
         </button>
 
         <span className={"pill " + pillCls}>{pillLabel}</span>
@@ -286,7 +287,7 @@ export function Bloco({ bloco, blocoIdx, courseKey, turmaKey, state,
               transition:'opacity 0.15s, color 0.15s' }}
             onMouseEnter={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.color='var(--red)'; }}
             onMouseLeave={e => { e.currentTarget.style.opacity='0.35'; e.currentTarget.style.color='var(--text3)'; }}
-          >🗑</button>
+          ><Trash size={13} /></button>
 
           <span className="bloco-prog">{doneCount}/{realAulas.length}</span>
           <span className={"chevron" + (open ? ' open' : '')}>▼</span>

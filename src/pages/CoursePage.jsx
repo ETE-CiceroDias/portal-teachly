@@ -6,6 +6,7 @@ import { COURSES } from '../data/courses.js';
 import { TURMAS } from '../data/turmas.js';
 import { Bloco } from '../components/Bloco.jsx';
 import { courseStats, getOrderedBlocos } from '../store/storage.js';
+import { Trash } from '@phosphor-icons/react';
 
 // ── cores padrão por disciplina ──────────────────────────────
 const DISC_CORES = {
@@ -187,8 +188,8 @@ function MiniProjetos({ discKey, projetos, editMode, onAdd, onEdit, onDelete }) 
           }}>
             {editMode && (
               <div style={{ position:'absolute', top:8, right:8, display:'flex', gap:4 }}>
-                <button onClick={() => openEdit(i)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.8rem', color:'var(--text3)' }}>✏️</button>
-                <button onClick={() => onDelete(i)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.8rem', color:'var(--red)' }}>🗑</button>
+                <button onClick={() => openEdit(i)} style={{ width:26, height:26, borderRadius:7, border:'1px solid var(--border)', background:'var(--surface2)', cursor:'pointer', color:'var(--text3)', display:'flex', alignItems:'center', justifyContent:'center' }}>✏️</button>
+                <button onClick={() => onDelete(i)} style={{ width:26, height:26, borderRadius:7, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.08)', cursor:'pointer', color:'var(--red)', display:'flex', alignItems:'center', justifyContent:'center' }}><Trash size={13} /></button>
               </div>
             )}
             <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--accent3)', marginBottom:4 }}>#{mp.num} {mp.nome}</div>

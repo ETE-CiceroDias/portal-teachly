@@ -1,5 +1,6 @@
 // components/ConfirmModal.jsx — substitui confirm() do browser
 import { useEffect } from 'react';
+import { Trash, Question } from '@phosphor-icons/react';
 
 export function ConfirmModal({ title, message, confirmLabel = 'Confirmar', danger = true, onConfirm, onCancel }) {
   // Fechar com Escape
@@ -39,7 +40,7 @@ export function ConfirmModal({ title, message, confirmLabel = 'Confirmar', dange
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '1.3rem', marginBottom: 16,
         }}>
-          {danger ? '🗑' : '❓'}
+          {danger ? <Trash size={22} /> : <Question size={22} />}
         </div>
 
         <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)', marginBottom: 8 }}>

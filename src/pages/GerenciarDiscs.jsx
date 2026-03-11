@@ -265,17 +265,25 @@ export function GerenciarDiscs() {
                     <div style={{ width:10, height:10, borderRadius:'50%', background:disc.cor, marginTop:3, flexShrink:0 }} />
                     <div style={{ display:'flex', gap:4 }}>
                       <button onClick={()=>toggleAtiva(disc)} title={disc.ativa?'Desativar':'Ativar'} style={{
-                        background:'none', border:'none', cursor:'pointer', color: disc.ativa ? 'var(--green)' : 'var(--text3)',
-                      }}>{disc.ativa ? <Eye size={15} weight="fill" /> : <EyeSlash size={15} />}</button>
+                        width:28, height:28, borderRadius:8, border:`1px solid var(--border)`, cursor:'pointer',
+                        background:'var(--surface2)', color: disc.ativa ? 'var(--green)' : 'var(--text3)',
+                        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s',
+                      }}>{disc.ativa ? <Eye size={14} weight="fill" /> : <EyeSlash size={14} />}</button>
                       <button onClick={()=>importarPlano(disc)} title="Importar plano de aula" style={{
-                        background:'none', border:'none', cursor:'pointer', color:'var(--text3)',
-                      }}><DownloadSimple size={15} /></button>
+                        width:28, height:28, borderRadius:8, border:'1px solid var(--border)', cursor:'pointer',
+                        background:'var(--surface2)', color:'var(--text3)',
+                        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s',
+                      }}><DownloadSimple size={14} /></button>
                       <button onClick={()=>{ setFormDisc({ nome:disc.label, codigo:disc.code, cor:disc.cor, ativa:disc.ativa }); setModal(disc); setLog(''); }} style={{
-                        background:'none', border:'none', cursor:'pointer', color:'var(--text3)',
-                      }}><PencilSimple size={15} /></button>
+                        width:28, height:28, borderRadius:8, border:'1px solid var(--border)', cursor:'pointer',
+                        background:'var(--surface2)', color:'var(--text3)',
+                        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s',
+                      }}><PencilSimple size={14} /></button>
                       <button onClick={()=>setConfirmItem({ type:'disc', msg:`Excluir "${disc.label}" permanentemente? Esta ação não pode ser desfeita.`, onConfirm: () => { setConfirmItem(null); excluirDisc(disc); } })} style={{
-                        background:'none', border:'none', cursor:'pointer', color:'var(--red)',
-                      }}><Trash size={15} /></button>
+                        width:28, height:28, borderRadius:8, border:'1px solid rgba(248,113,113,0.3)', cursor:'pointer',
+                        background:'rgba(248,113,113,0.08)', color:'var(--red)',
+                        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s',
+                      }}><Trash size={14} /></button>
                     </div>
                   </div>
                   <div style={{ fontWeight:700, color: disc.ativa?'var(--text)':'var(--text3)', fontSize:'0.875rem', marginBottom:2 }}>

@@ -1,7 +1,7 @@
 // pages/DesafioUX.jsx
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
-
+import { Trash } from '@phosphor-icons/react';
 import { TURMAS, ALUNO_CORES } from '../data/turmas.js';
 import { TURMA_IDS } from '../data/ids.js';
 
@@ -279,7 +279,7 @@ export function DesafioUX({ activeTurma }) {
 
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button className="icon-btn-sm" onClick={() => abrirEdicao(ri)}>✏️</button>
-                  <button className="icon-btn-sm danger" onClick={() => excluir(ri)}>🗑️</button>
+                  <button className="icon-btn-sm danger" onClick={() => excluir(ri)} style={{display:'flex',alignItems:'center',justifyContent:'center'}}><Trash size={13} /></button>
                 </div>
               </div>
             );
