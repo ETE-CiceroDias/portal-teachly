@@ -323,18 +323,25 @@ a:hover { text-decoration: underline; }
 /* ─── Sidebar ──────────────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
   background: rgba(9, 6, 18, 0.94);
   border-right: 1px solid rgba(192,132,252,0.14);
   display: flex;
   flex-direction: column;
-  position: fixed;
-  top: 0; left: 0; bottom: 0;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
   z-index: 100;
-  transition: width 0.25s ease, transform var(--t);
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1);
   overflow-y: auto;
   overflow-x: hidden;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  flex-shrink: 0;
+  /* Botão de toggle fica relativo à sidebar */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
 }
 
 .sidebar-brand {
@@ -501,17 +508,17 @@ a:hover { text-decoration: underline; }
 
 /* ─── Main Content ──────────────────────────────────────── */
 .main-content {
-  margin-left: var(--sidebar-w);
   flex: 1;
+  min-width: 0;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  transition: margin-left 0.25s ease;
+  overflow: hidden;
 }
 
 .page-wrap {
   padding: 28px 32px;
-  max-width: 1100px;
+  max-width: 1200px;
   width: 100%;
 }
 
@@ -552,52 +559,62 @@ a:hover { text-decoration: underline; }
   backdrop-filter: blur(2px);
 }
 
-/* ── Sidebar colapso ── */
+/* ── Botão colapsar sidebar — aba na borda direita ── */
 .sidebar-collapse-btn {
-  display: none; /* hidden on desktop - we use topbar toggle instead */
-}
-
-/* Botão toggle na topbar do desktop */
-.topbar-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: -16px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 52px;
+  border-radius: 0 8px 8px 0;
+  background: rgba(30, 15, 60, 0.96);
+  border: 1px solid rgba(192,132,252,0.22);
+  border-left: none;
+  cursor: pointer;
+  color: rgba(192,132,252,0.6);
+  font-size: 0.55rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  cursor: pointer;
-  color: var(--text3);
-  font-size: 0.75rem;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
+  z-index: 101;
+  transition: background 0.15s, color 0.15s, width 0.15s;
+  writing-mode: initial;
+  letter-spacing: 0;
 }
-.topbar-toggle-btn:hover { background: var(--accent-faint); color: var(--accent3); }
+.sidebar-collapse-btn:hover {
+  background: rgba(124,58,237,0.25);
+  color: #c084fc;
+  width: 22px;
+}
 
-/* Topbar desktop — barra fixa no topo do conteúdo */
+/* Topbar desktop — mostra turma ativa e turma info */
+.topbar-toggle-btn { display: none; } /* não mais necessário */
+
 .desktop-topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 32px;
+  gap: 12px;
+  padding: 8px 28px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 90;
-  background: var(--bg);
-  backdrop-filter: blur(10px);
+  background: rgba(10, 4, 20, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .desktop-topbar-spacer { flex: 1; }
 
 .sidebar.collapsed {
   width: 0 !important;
-  overflow: hidden;
-  min-width: 0;
+  min-width: 0 !important;
+  overflow: visible;
   border-right: none;
 }
-.app-shell.sidebar-collapsed .main-content {
-  margin-left: 0;
+.sidebar.collapsed > *:not(.sidebar-collapse-btn) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -850,37 +867,7 @@ a:hover { text-decoration: underline; }
 }
 .aula-row:hover { background: var(--surface2); }
 
-/* Botões de ação por aula — discretos, aparecem no hover */
-.aula-actions {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-.aula-row:hover .aula-actions { opacity: 1; }
-.aula-action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 3px 5px;
-  border-radius: 5px;
-  font-size: 0.78rem;
-  line-height: 1;
-  color: var(--text3);
-  transition: background 0.1s;
-}
-.aula-action-btn:hover { background: var(--surface3); }
-.aula-action-del:hover { background: rgba(239,68,68,0.12); }
 
-/* Botões de ação do bloco */
-.bloco-actions {
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-.bloco-head:hover .bloco-actions { opacity: 1; }
 
 .drag-handle { color: var(--muted); font-size: 14px; cursor: grab; flex-shrink: 0; }
 .drag-handle:active { cursor: grabbing; }
@@ -896,6 +883,8 @@ a:hover { text-decoration: underline; }
 
 .aula-info { flex: 1; min-width: 0; }
 .aula-name { font-size: 0.9rem; font-weight: 500; color: var(--text); }
+.aula-title-editable { cursor: text; flex: 1; min-width: 0; border-radius: 4px; padding: 1px 3px; margin: -1px -3px; }
+.aula-title-editable:hover { background: rgba(255,255,255,0.04); }
 .aula.done .aula-name { color: var(--text3); text-decoration: line-through; text-decoration-color: var(--muted); }
 .aula-meta { font-size: 0.75rem; color: var(--text3); margin-top: 2px; }
 .aula-date-tag { color: var(--accent-light); }
