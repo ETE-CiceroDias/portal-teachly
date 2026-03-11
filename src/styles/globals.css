@@ -550,41 +550,6 @@ a:hover { text-decoration: underline; }
   backdrop-filter: blur(2px);
 }
 
-/* ── Sidebar colapso ── */
-.sidebar-collapse-btn {
-  display: block;
-  position: absolute;
-  top: 50%;
-  right: -14px;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 0.65rem;
-  color: var(--text3);
-  z-index: 110;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, color 0.15s;
-}
-.sidebar-collapse-btn:hover { background: var(--accent-faint); color: var(--accent3); }
-
-.sidebar.collapsed {
-  width: 0;
-  overflow: hidden;
-  min-width: 0;
-}
-.app-shell.sidebar-collapsed .main-content {
-  margin-left: 0;
-}
-.app-shell.sidebar-collapsed .sidebar-collapse-btn {
-  right: -36px;
-}
-
 /* ═══════════════════════════════════════════════════════
    PAGE HEADER
 ═══════════════════════════════════════════════════════ */

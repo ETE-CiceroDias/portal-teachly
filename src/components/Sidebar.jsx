@@ -32,7 +32,7 @@ const NAV_TURMA = [
   { tab:'grupos', Icon: UsersThree, label:'Grupos' },
 ];
 
-export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, onLogout, state, theme, onToggleTheme, open, onClose, collapsed, onToggleCollapse }) {
+export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, onLogout, state, theme, onToggleTheme, open, onClose }) {
   const { org, turmas } = useOrg();
 
   const [nome,        setNome]        = useState('');
@@ -89,16 +89,7 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
   return (
     <>
       <div className={`sidebar-overlay${open?' open':''}`} onClick={onClose} />
-      <aside className={`sidebar${open?' open':''}${collapsed?' collapsed':''}`}>
-
-        {/* Botão colapsar (desktop) */}
-        <button
-          className="sidebar-collapse-btn"
-          onClick={onToggleCollapse}
-          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-        >
-          {collapsed ? '▶' : '◀'}
-        </button>
+      <aside className={`sidebar${open?' open':''}`}>
 
         {/* Brand */}
         <div className="sidebar-brand">
