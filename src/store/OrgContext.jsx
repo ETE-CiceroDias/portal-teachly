@@ -40,11 +40,12 @@ export function OrgProvider({ user, children }) {
 
     setOrg(orgData);
 
-    // 2. Busca turmas com suas disciplinas
+    // 2. Busca turmas com suas disciplinas (apenas do professor logado)
     const { data: turmasData } = await supabase
     .from('turmas')
     .select('*, disciplinas!disciplinas_turma_id_fkey(*)')
     .eq('organizacao_id', membro.organizacao_id)
+    .eq('professor_id', user.id)
     .order('criado_em');
 
     // Normaliza para o formato que o app usa
@@ -71,7 +72,7 @@ export function OrgProvider({ user, children }) {
     }));
 
     setTurmas(normalized);
-    setPronto(normalized.length > 0);
+    setPronto(!!orgData); // pronto se tem org, mesmo sem turmas ainda
     setLoading(false);
   }, [user]);
 
