@@ -512,10 +512,15 @@ function DetailModal({ item, onClose, onEdit, onDelete, buildMailto }) {
 export function AtividadesProjetos() {
   const [items, setItems] = useState([]);
   const [showVitrine, setShowVitrine] = useState(false);
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    supabase.from('atividades').select('*').order('prazo')
-      .then(({ data }) => setItems(data || []));
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      setUserId(user.id);
+      supabase.from('atividades').select('*').eq('professor_id', user.id).order('prazo')
+        .then(({ data }) => setItems(data || []));
+    });
   }, []);
 
   const [showForm, setShowForm] = useState(false);
@@ -535,7 +540,7 @@ export function AtividadesProjetos() {
       setItems(its => its.map(i => i.id === editId ? { ...form, id: editId } : i));
     } else {
       const { data: saved } = await supabase.from('atividades')
-        .insert({ ...form, organizacao_id: ORG_ID }).select().single();
+        .insert({ ...form, organizacao_id: ORG_ID, professor_id: userId }).select().single();
       if (saved) setItems(its => [...its, saved]);
     }
     setShowForm(false);

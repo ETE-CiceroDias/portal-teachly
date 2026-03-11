@@ -97,7 +97,7 @@ export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, 
           onClick={onToggleCollapse}
           title={collapsed ? 'Expandir menu' : 'Recolher menu'}
         >
-          {collapsed ? '▶' : '◀'}
+          {collapsed ? '›' : '‹'}
         </button>
 
         {/* Brand */}

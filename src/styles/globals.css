@@ -563,29 +563,27 @@ a:hover { text-decoration: underline; }
 .sidebar-collapse-btn {
   position: absolute;
   top: 50%;
-  right: -16px;
+  right: -14px;
   transform: translateY(-50%);
-  width: 18px;
-  height: 52px;
-  border-radius: 0 8px 8px 0;
-  background: rgba(30, 15, 60, 0.96);
-  border: 1px solid rgba(192,132,252,0.22);
-  border-left: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
   cursor: pointer;
-  color: rgba(192,132,252,0.6);
-  font-size: 0.55rem;
+  color: var(--text3);
+  font-size: 0.7rem;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 101;
-  transition: background 0.15s, color 0.15s, width 0.15s;
-  writing-mode: initial;
-  letter-spacing: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 .sidebar-collapse-btn:hover {
-  background: rgba(124,58,237,0.25);
+  background: rgba(124,58,237,0.2);
   color: #c084fc;
-  width: 22px;
+  border-color: rgba(192,132,252,0.4);
 }
 
 /* Topbar desktop — mostra turma ativa e turma info */
@@ -607,38 +605,38 @@ a:hover { text-decoration: underline; }
 .sidebar.collapsed {
   width: 64px !important;
   min-width: 64px !important;
-  overflow: hidden;
+  overflow: visible;
 }
 .sidebar.collapsed .sidebar-title,
 .sidebar.collapsed .sidebar-subtitle,
 .sidebar.collapsed .nav-section-label,
-.sidebar.collapsed .nav-item span:not(.nav-icon),
 .sidebar.collapsed .turma-subnav,
 .sidebar.collapsed .sidebar-prof-name,
-.sidebar.collapsed .sidebar-prof-role,
-.sidebar.collapsed [data-caret] {
+.sidebar.collapsed .sidebar-prof-role {
   display: none !important;
 }
 .sidebar.collapsed .nav-item {
   justify-content: center;
   padding: 10px 0;
 }
+.sidebar.collapsed .nav-item span:last-child:not(.nav-icon) {
+  display: none;
+}
 .sidebar.collapsed .nav-icon {
-  margin: 0;
+  margin: 0 auto;
 }
 .sidebar.collapsed .sidebar-brand {
   justify-content: center;
   padding: 16px 0;
-}
-.sidebar.collapsed .sidebar-gem {
-  margin: 0;
+  gap: 0;
 }
 .sidebar.collapsed .sidebar-profile-btn {
   justify-content: center;
   padding: 10px 0;
+  gap: 0;
 }
 .sidebar.collapsed .sidebar-avatar {
-  margin: 0;
+  margin: 0 auto;
 }
 
 /* ═══════════════════════════════════════════════════════
