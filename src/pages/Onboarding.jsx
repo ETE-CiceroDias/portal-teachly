@@ -527,7 +527,7 @@ export function Onboarding({ onDone, onLogout }) {
           );
         }
       }
-      await supabase.from('usuarios').upsert({ id:user.id, email:user.email, role:`Professora · ${orgData.nome}` });
+      await supabase.from('usuarios').upsert({ id:user.id, email:user.email, role:`Professora · ${orgData.nome}`, area: area || null });
       setStatus('done');
       setTimeout(() => onDone(), 1500);
     } catch(e) {

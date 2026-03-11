@@ -1,8 +1,9 @@
 // pages/GerenciarDiscs.jsx — Disciplinas + Turmas
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
 import { COURSES } from '../data/courses.js';
+import { getCatalogoByCurso } from '../data/disciplinasCatalogo.js';
 import { PencilSimple, Trash, Eye, EyeSlash, DownloadSimple, Plus, Check, Power } from '@phosphor-icons/react';
 import { ConfirmModal } from '../components/ConfirmModal.jsx';
 
@@ -35,6 +36,24 @@ function CorePicker({ value, onChange }) {
 
 export function GerenciarDiscs() {
   const { org, turmas, reload } = useOrg();
+
+  // ── Curso do usuário logado para sugestões ─────────────────
+  const [cursoProfessor, setCursoProfessor] = useState(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from('usuarios').select('area').eq('id', user.id).maybeSingle()
+        .then(({ data }) => {
+          if (data?.area) {
+            // area: 'design' → DG, 'ds' → DS, 'ambos' → null
+            const curso = data.area === 'design' ? 'DG' : data.area === 'ds' ? 'DS' : null;
+            setCursoProfessor(curso);
+          }
+        });
+    });
+  }, []);
+
+  const catalogoSugestoes = getCatalogoByCurso(cursoProfessor);
 
   // ── Estado de modals ───────────────────────────────────────
   const [modal,     setModal]    = useState(null); // null | 'novaDisc' | 'novaTurma' | {disc} | {turma, tipo:'turma'}
@@ -401,6 +420,36 @@ export function GerenciarDiscs() {
               {turmas.map(t=><option key={t.id} value={t.id}>{t.modulo} · {t.label}</option>)}
             </select>
           </div>
+
+          {/* Sugestões do catálogo */}
+          {catalogoSugestoes.length > 0 && (
+            <div className="modal-field">
+              <div className="modal-label">Sugestões do catálogo</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, maxHeight:130, overflowY:'auto', padding:'2px 0' }}>
+                {catalogoSugestoes.map(s => {
+                  const jaTem = turmas.flatMap(t => t.disciplinas || []).some(d => d.code === s.sigla);
+                  return (
+                    <button key={s.sigla} onClick={() => {
+                      if (jaTem) return;
+                      setFormDisc({ nome: s.nome, codigo: s.sigla, cor: s.cor });
+                    }} style={{
+                      padding: '4px 10px', borderRadius: 99, fontSize: '0.75rem', fontWeight: 600,
+                      cursor: jaTem ? 'default' : 'pointer', fontFamily: 'inherit',
+                      border: `1px solid ${jaTem ? 'var(--border)' : s.cor + '66'}`,
+                      background: formDisc.codigo === s.sigla ? `${s.cor}22` : jaTem ? 'transparent' : 'var(--surface2)',
+                      color: jaTem ? 'var(--text3)' : formDisc.codigo === s.sigla ? s.cor : 'var(--text2)',
+                      opacity: jaTem ? 0.5 : 1,
+                      transition: 'all 0.12s',
+                    }}>
+                      {jaTem ? '✓ ' : ''}{s.sigla} — {s.nome.split(' ').slice(0, 3).join(' ')}{s.nome.split(' ').length > 3 ? '…' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize:'0.7rem', color:'var(--text3)', marginTop:5 }}>Clique para preencher automaticamente</div>
+            </div>
+          )}
+
           <div className="modal-field">
             <div className="modal-label">Nome *</div>
             <input className="modal-input" value={formDisc.nome} onChange={fd('nome')} placeholder="Design Centrado no Usuário" autoFocus />
