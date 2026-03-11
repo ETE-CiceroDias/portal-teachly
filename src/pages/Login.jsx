@@ -111,7 +111,9 @@ export function Login() {
 
   return (
     <div style={S.wrap}>
-      <div style={S.card}>
+      <div className="blob-mid" aria-hidden="true" />
+      <div className="blob-tr"  aria-hidden="true" />
+      <div style={{ ...S.card, position:'relative', zIndex:1 }}>
         {/* Logo */}
         <div style={S.logo}>
           <div style={S.gem}>T</div>

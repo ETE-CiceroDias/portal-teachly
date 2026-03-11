@@ -463,6 +463,7 @@ export function Onboarding({ onDone, onLogout }) {
   const cardStyle = {
     background:'#120820', border:'1px solid #2a1650',
     borderRadius:20, padding:'36px 32px', maxWidth:560, margin:'0 auto',
+    position:'relative', zIndex:1,
   };
 
   const steps = ['Organização','Turmas','Disciplinas'];
@@ -475,6 +476,9 @@ export function Onboarding({ onDone, onLogout }) {
       padding:'24px 20px', fontFamily:'DM Sans, sans-serif',
       position:'relative',
     }}>
+      {/* Blobs de luz — igual ao resto do app */}
+      <div className="blob-mid" aria-hidden="true" />
+      <div className="blob-tr"  aria-hidden="true" />
       {/* Voltar ao login */}
       {tela === 'escolha' && onLogout && (
         <button onClick={onLogout} style={{
@@ -493,7 +497,7 @@ export function Onboarding({ onDone, onLogout }) {
       )}
 
       {/* Logo */}
-      <div style={{ marginBottom:32, textAlign:'center' }}>
+      <div style={{ marginBottom:32, textAlign:'center', position:'relative', zIndex:1 }}>
         <div style={{
           width:48, height:48, background:'linear-gradient(135deg,#6d28d9,#a855f7)',
           borderRadius:14, display:'inline-flex', alignItems:'center', justifyContent:'center',
@@ -507,7 +511,7 @@ export function Onboarding({ onDone, onLogout }) {
 
       {/* Steps (só quando criando org) */}
       {fluxo==='criar' && ['criarOrg','turmas','discs'].includes(tela) && (
-        <div style={{ display:'flex', gap:0, marginBottom:28, alignItems:'center' }}>
+        <div style={{ display:'flex', gap:0, marginBottom:28, alignItems:'center', position:'relative', zIndex:1 }}>
           {steps.map((l,i)=>{
             const cur = stepIdx[tela]??0;
             return (
