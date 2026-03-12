@@ -1,12 +1,11 @@
+// Frequencia.jsx — arquivo completo corrigido
 import { EmptyState } from '../components/EmptyState.jsx';
-// pages/Frequencia.jsx — versão Supabase
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { TURMAS, ALUNO_CORES } from '../data/turmas.js';
 import { TURMA_IDS } from '../data/ids.js';
 import { SquaresFour, ListBullets, CheckCircle, XCircle, Trash } from '@phosphor-icons/react';
 
-// Busca alunos matriculados nesta turma via tabela global alunos + matriculas
 async function getAlunosMatriculados(turmaId) {
   const { data } = await supabase
     .from('matriculas')
@@ -19,7 +18,6 @@ async function getAlunosMatriculados(turmaId) {
   })).filter(a => a.nome);
 }
 
-// Helper: busca alunos dos grupos desta turma no Supabase (mantido como fallback)
 async function getAlunosFromGrupos(turmaId) {
   const { data } = await supabase.from('grupos').select('membros').eq('turma_id', turmaId);
   const seen = new Set();
@@ -46,27 +44,23 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-/* Iniciais do nome */
 const initials = (nome) => nome.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
-
-/* Formata data ISO → dd/mm */
 const fmtDate  = (iso) => iso ? iso.slice(8,10) + '/' + iso.slice(5,7) : '';
-
-/* Data hoje */
 const todayISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
 
+// ✅ FIX: chave usa aula.id (UUID) — igual ao que o banco retorna
+const presKey = (alunoId, aulaId) => `${alunoId}_${aulaId}`;
+
 export function Frequencia({ activeTurma, turmaKey }) {
   const turma   = TURMAS[turmaKey] || TURMAS[activeTurma];
   const turmaId = activeTurma || TURMA_IDS[turmaKey];
 
-  /* ─── State (estrutura igual à original para reutilizar todo o JSX) ─── */
   const [turmaData, setTurmaData] = useState({ alunos: [], aulas: [], presencas: {} });
   const [loading,   setLoading]   = useState(true);
 
-  /* Carrega do Supabase: aulas_frequencia + presencas */
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -75,20 +69,17 @@ export function Frequencia({ activeTurma, turmaKey }) {
 
       const aulas = (aulasRows || []).map(r => ({ id: r.id, data: r.data, disciplina: r.disciplina_nome || '' }));
 
-      // Presencas: busca todas de uma vez
       const aulaIds = aulas.map(a => a.id);
       let presencas = {};
       if (aulaIds.length > 0) {
         const { data: presRows } = await supabase
           .from('presencas').select('*').in('aula_frequencia_id', aulaIds);
+        // ✅ FIX: chave agora é aluno_local_id + aula_frequencia_id (ambos UUIDs)
         (presRows || []).forEach(p => {
-          // Mapeia para o formato { alunoLocalId_aulaIdx }
-          // mas aqui usamos alunoId(uuid)_aulaId(uuid) e traduzimos na renderização
-          presencas[`${p.aluno_local_id}_${p.aula_frequencia_id}`] = p.presente;
+          presencas[presKey(p.aluno_local_id, p.aula_frequencia_id)] = p.presente;
         });
       }
 
-      // Alunos: busca da tabela alunos_frequencia (local por turma no banco)
       const { data: alunosRows } = await supabase
         .from('alunos_frequencia').select('*').eq('turma_id', turmaId).order('criado_em');
 
@@ -104,22 +95,20 @@ export function Frequencia({ activeTurma, turmaKey }) {
     setTurmaData(next);
   }, []);
 
-  /* Modals */
   const [showAddAluno, setShowAddAluno] = useState(false);
   const [showAddAula,  setShowAddAula]  = useState(false);
   const [showImport,   setShowImport]   = useState(false);
-  const [editAluno,    setEditAluno]    = useState(null); // index
+  const [editAluno,    setEditAluno]    = useState(null);
   const [formAluno,    setFormAluno]    = useState({ nome: '', matricula: '' });
   const [formAula,     setFormAula]     = useState({ data: todayISO(), disciplina: '' });
-  const [viewMode,     setViewMode]     = useState('grid'); // grid | list
-  const [importSel,    setImportSel]    = useState([]); // alunos selecionados para importar
+  const [viewMode,     setViewMode]     = useState('grid');
+  const [importSel,    setImportSel]    = useState([]);
   const [syncMsg,      setSyncMsg]      = useState('');
   const [syncing,      setSyncing]      = useState(false);
 
   const [alunosDoGrupo, setAlunosDoGrupo] = useState([]);
   useEffect(() => { getAlunosFromGrupos(turmaId).then(setAlunosDoGrupo); }, [turmaId]);
 
-  // Sincroniza alunos matriculados globalmente → lista de frequência
   const sincronizarAlunos = async () => {
     setSyncing(true); setSyncMsg('');
     try {
@@ -163,8 +152,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
     setImportSel([]);
   };
 
-  /* ─── Alunos ─── */
-  const [alunoErro, setAlunoErro] = useState('');
+  const [alunoErro,   setAlunoErro]   = useState('');
   const [alunoSaving, setAlunoSaving] = useState(false);
 
   const adicionarAluno = async () => {
@@ -203,11 +191,11 @@ export function Frequencia({ activeTurma, turmaKey }) {
     const aluno = turmaData.alunos[i];
     await supabase.from('alunos_frequencia').delete().eq('id', aluno.id);
     const presencas = { ...turmaData.presencas };
+    // ✅ FIX: prefixo correto com UUID do aluno
     Object.keys(presencas).forEach(k => { if (k.startsWith(`${aluno.id}_`)) delete presencas[k]; });
     await persist({ ...turmaData, alunos: turmaData.alunos.filter((_, j) => j !== i), presencas });
   };
 
-  /* ─── Aulas ─── */
   const [aulaErro,   setAulaErro]   = useState('');
   const [aulaSaving, setAulaSaving] = useState(false);
 
@@ -219,7 +207,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
         .insert({ turma_id: turmaId, data: formAula.data, disciplina_nome: formAula.disciplina })
         .select().single();
       if (error) {
-        // UNIQUE violation — já existe aula nessa data
         if (error.code === '23505') throw new Error(`Já existe uma aula registrada em ${formAula.data}. Escolha outra data.`);
         throw error;
       }
@@ -239,19 +226,17 @@ export function Frequencia({ activeTurma, turmaKey }) {
     const aula = turmaData.aulas[i];
     await supabase.from('aulas_frequencia').delete().eq('id', aula.id);
     const presencas = { ...turmaData.presencas };
-    Object.keys(presencas).forEach(k => { if (k.includes(`_${aula.id}`)) delete presencas[k]; });
+    // ✅ FIX: usa aula.id (UUID) para limpar presenças
+    Object.keys(presencas).forEach(k => { if (k.endsWith(`_${aula.id}`)) delete presencas[k]; });
     await persist({ ...turmaData, aulas: turmaData.aulas.filter((_, j) => j !== i), presencas });
   };
 
-  /* ─── Presença ─── */
-  const presKey = (alunoId, aulaIdx) => `${alunoId}_${aulaIdx}`;
-
-  const togglePresenca = async (alunoId, aulaIdx) => {
-    const aula = turmaData.aulas[aulaIdx];
-    const k = presKey(alunoId, aulaIdx);
+  // ✅ FIX: togglePresenca e isPresente agora usam aula.id em vez de aulaIdx
+  const togglePresenca = async (alunoId, aulaId) => {
+    const k = presKey(alunoId, aulaId);
     const presente = !turmaData.presencas[k];
     await supabase.from('presencas').upsert({
-      aula_frequencia_id: aula.id,
+      aula_frequencia_id: aulaId,
       aluno_local_id: alunoId,
       presente,
     });
@@ -259,13 +244,13 @@ export function Frequencia({ activeTurma, turmaKey }) {
     await persist({ ...turmaData, presencas });
   };
 
-  const isPresente = (alunoId, aulaIdx) => !!turmaData.presencas[presKey(alunoId, aulaIdx)];
+  const isPresente = (alunoId, aulaId) => !!turmaData.presencas[presKey(alunoId, aulaId)];
 
-  /* ─── Stats ─── */
+  // ✅ FIX: stats usa aula.id, e turmaData está nas dependências corretas
   const stats = useMemo(() => {
     return turmaData.alunos.map(a => {
       const total    = turmaData.aulas.length;
-      const presente = turmaData.aulas.filter((_, i) => isPresente(a.id, i)).length;
+      const presente = turmaData.aulas.filter(au => isPresente(a.id, au.id)).length;
       const pct      = total > 0 ? Math.round(presente / total * 100) : 100;
       return { ...a, total, presente, ausente: total - presente, pct };
     });
@@ -275,7 +260,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
     ? Math.round(stats.reduce((s, a) => s + a.pct, 0) / stats.length)
     : 100;
 
-  /* ─── Marcar todos presentes em aula ─── */
+  // ✅ FIX: marcarTodos usa aula.id em vez de aulaIdx
   const marcarTodos = async (aulaIdx, valor) => {
     const aula = turmaData.aulas[aulaIdx];
     const upserts = turmaData.alunos.map(a => ({
@@ -283,12 +268,12 @@ export function Frequencia({ activeTurma, turmaKey }) {
     }));
     if (upserts.length > 0) await supabase.from('presencas').upsert(upserts);
     const presencas = { ...turmaData.presencas };
-    turmaData.alunos.forEach(a => { presencas[presKey(a.id, aulaIdx)] = valor; });
+    turmaData.alunos.forEach(a => { presencas[presKey(a.id, aula.id)] = valor; });
     await persist({ ...turmaData, presencas });
   };
 
-  const aulas   = turmaData.aulas;
-  const alunos  = turmaData.alunos;
+  const aulas  = turmaData.aulas;
+  const alunos = turmaData.alunos;
 
   return (
     <div className="anim-up">
@@ -331,13 +316,12 @@ export function Frequencia({ activeTurma, turmaKey }) {
         </div>
       )}
 
-      {/* Mini stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         {[
-          { label: 'Alunos',      val: alunos.length,                      c: 'var(--accent-light)' },
-          { label: 'Aulas',       val: aulas.length,                       c: 'var(--text2)' },
-          { label: 'Freq. média', val: `${mediaFreq}%`,                    c: mediaFreq >= 75 ? 'var(--green)' : 'var(--red)' },
-          { label: 'Risco',       val: stats.filter(a => a.pct < 75).length, c: 'var(--red)' },
+          { label: 'Alunos',      val: alunos.length,                         c: 'var(--accent-light)' },
+          { label: 'Aulas',       val: aulas.length,                          c: 'var(--text2)' },
+          { label: 'Freq. média', val: `${mediaFreq}%`,                       c: mediaFreq >= 75 ? 'var(--green)' : 'var(--red)' },
+          { label: 'Risco',       val: stats.filter(a => a.pct < 75).length,  c: 'var(--red)' },
         ].map(s => (
           <div key={s.label} style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
@@ -354,7 +338,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
           desc="Adicione os alunos da turma para começar a registrar a frequência."
           action="+ Adicionar primeiro aluno" onAction={() => setShowAddAluno(true)} />
       ) : aulas.length === 0 ? (
-        /* Lista de alunos sem aulas */
         <div>
           <div className="section-label">Alunos cadastrados</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
@@ -384,9 +367,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
           </div>
         </div>
       ) : (
-        /* Grid de frequência */
         <div>
-          {/* Tabs de visualização */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
             {[['grid', <SquaresFour size={14} />, 'Grade'], ['list', <ListBullets size={14} />, 'Resumo']].map(([v, icon, l]) => (
               <button
@@ -413,25 +394,16 @@ export function Frequencia({ activeTurma, turmaKey }) {
                       Aluno
                     </th>
                     {aulas.map((au, i) => (
-                      <th key={i} style={{ padding: '8px 6px', background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text2)', fontWeight: 600, minWidth: 64 }}>
+                      <th key={au.id} style={{ padding: '8px 6px', background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text2)', fontWeight: 600, minWidth: 64 }}>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>{fmtDate(au.data)}</div>
                         <div style={{ fontSize: '0.68rem', color: 'var(--accent-light)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>{au.disciplina || '—'}</div>
                         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', marginTop: 4 }}>
-                          <button
-                            title="Marcar todos presente"
-                            onClick={() => marcarTodos(i, true)}
-                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)', cursor: 'pointer' }}
-                          >✓</button>
-                          <button
-                            title="Marcar todos ausente"
-                            onClick={() => marcarTodos(i, false)}
-                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--red-border)', cursor: 'pointer' }}
-                          >✗</button>
-                          <button
-                            title="Remover aula"
-                            onClick={() => excluirAula(i)}
-                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--surface3)', color: 'var(--text3)', border: '1px solid var(--border)', cursor: 'pointer' }}
-                          ><Trash size={13} /></button>
+                          <button title="Marcar todos presente" onClick={() => marcarTodos(i, true)}
+                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)', cursor: 'pointer' }}>✓</button>
+                          <button title="Marcar todos ausente" onClick={() => marcarTodos(i, false)}
+                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--red-border)', cursor: 'pointer' }}>✗</button>
+                          <button title="Remover aula" onClick={() => excluirAula(i)}
+                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--surface3)', color: 'var(--text3)', border: '1px solid var(--border)', cursor: 'pointer' }}><Trash size={13} /></button>
                         </div>
                       </th>
                     ))}
@@ -461,13 +433,14 @@ export function Frequencia({ activeTurma, turmaKey }) {
                             </div>
                           </div>
                         </td>
-                        {aulas.map((_, ai) => {
-                          const pres = isPresente(a.id, ai);
+                        {aulas.map((au) => {
+                          // ✅ FIX: passa au.id em vez do índice
+                          const pres = isPresente(a.id, au.id);
                           return (
                             <td
-                              key={ai}
+                              key={au.id}
                               style={{ padding: 6, border: '1px solid var(--border)', textAlign: 'center', background: pres ? 'rgba(74,222,128,0.06)' : 'rgba(248,113,113,0.04)', cursor: 'pointer' }}
-                              onClick={() => togglePresenca(a.id, ai)}
+                              onClick={() => togglePresenca(a.id, au.id)}
                               title={pres ? 'Presente — clique para marcar falta' : 'Falta — clique para marcar presença'}
                             >
                               {pres ? <CheckCircle size={18} color="var(--green)" weight="fill" /> : <XCircle size={18} color="var(--red)" weight="fill" />}
@@ -485,7 +458,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
               </table>
             </div>
           ) : (
-            /* Resumo por aluno */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {stats.map((a, i) => {
                 const cor = ALUNO_CORES[i % ALUNO_CORES.length];
