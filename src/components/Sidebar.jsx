@@ -27,6 +27,7 @@ const NAV_GERAL = [
 
 const NAV_TURMA = [
   { tab:'grupos', Icon: UsersThree, label:'Grupos' },
+  { tab:'frequencia', Icon: ClipboardText, label:'Frequência' },
 ];
 
 export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, onLogout, state, theme, onToggleTheme, open, onClose, collapsed, onToggleCollapse }) {
