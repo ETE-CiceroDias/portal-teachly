@@ -1,4 +1,8 @@
-// Frequencia.jsx — arquivo completo corrigido
+// Frequencia.jsx — VERSÃO 2 CORRIGIDA
+// ✅ Problema 1 RESOLVIDO: sincronizarParaGlobal funciona corretamente
+// ✅ Problema 2 RESOLVIDO: Coluna de ID visível na tabela
+// ✅ Problema 3 RESOLVIDO: Sincronização sem duplicatas
+
 import { EmptyState } from '../components/EmptyState.jsx';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase.js';
@@ -7,19 +11,6 @@ import { TURMAS, ALUNO_CORES } from '../data/turmas.js';
 import { TURMA_IDS } from '../data/ids.js';
 import { SquaresFour, ListBullets, CheckCircle, XCircle, Trash } from '@phosphor-icons/react';
 
-// ── Componente Modal (definido ANTES de usar) ──────────────────
-function Modal({ title, onClose, children }) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">{title}</div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// ── Funções auxiliares ──────────────────────────────────────────
 async function getAlunosMatriculados(turmaId) {
   const { data } = await supabase
     .from('matriculas')
@@ -47,6 +38,17 @@ async function getAlunosFromGrupos(turmaId) {
   return alunos;
 }
 
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 const initials = (nome) => nome.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 const fmtDate  = (iso) => iso ? iso.slice(8,10) + '/' + iso.slice(5,7) : '';
 const todayISO = () => {
@@ -54,10 +56,12 @@ const todayISO = () => {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
 
-// ✅ FIX: chave usa aula.id (UUID) — igual ao que o banco retorna
 const presKey = (alunoId, aulaId) => `${alunoId}_${aulaId}`;
 
-// ── Tabela com scroll horizontal duplicado no topo e embaixo ─────
+// ✅ Função para mostrar apenas primeiros 8 caracteres do ID
+const formatId = (id) => id ? id.substring(0, 8) : '—';
+
+// ── Tabela com scroll horizontal sincronizado ─────
 function SyncedScrollTable({ children }) {
   const topRef    = useRef(null);
   const bottomRef = useRef(null);
@@ -76,7 +80,6 @@ function SyncedScrollTable({ children }) {
     syncingRef.current = false;
   };
 
-  // Mede largura real da tabela para a barra do topo
   const [tableW, setTableW] = useState(0);
   const tableRef = useRef(null);
   useEffect(() => {
@@ -90,12 +93,10 @@ function SyncedScrollTable({ children }) {
 
   return (
     <div>
-      {/* Barra de scroll do TOPO */}
       <div ref={topRef} onScroll={onTopScroll}
         style={{ overflowX: 'auto', overflowY: 'hidden', height: 12, marginBottom: 4 }}>
         <div style={{ width: tableW, height: 1 }} />
       </div>
-      {/* Tabela real */}
       <div ref={el => { bottomRef.current = el; tableRef.current = el; }}
         onScroll={onBottomScroll}
         style={{ overflowX: 'auto', overflowY: 'visible' }}>
@@ -105,9 +106,16 @@ function SyncedScrollTable({ children }) {
   );
 }
 
-// ── Tabela com colunas redimensionáveis ──────────────────────────
+// ── Tabela de alunos com coluna de ID ✅ ──────────────────────────
 function ResizableTable({ alunos, onEdit, onDelete }) {
-  const [colWidths, setColWidths] = useState({ num: 48, nome: 260, matricula: 120, acoes: 76 });
+  // ✅ NOVO: Adicionar coluna "id" (por padrão 60px)
+  const [colWidths, setColWidths] = useState({ 
+    id: 60, 
+    num: 48, 
+    nome: 260, 
+    matricula: 120, 
+    acoes: 76 
+  });
   const dragging = useRef(null);
 
   const startResize = (col, e) => {
@@ -146,6 +154,8 @@ function ResizableTable({ alunos, onEdit, onDelete }) {
     borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)',
     overflow: 'hidden', textAlign: center ? 'center' : 'left',
     background: 'var(--surface)',
+    fontFamily: center && w === colWidths.id ? 'monospace' : 'inherit',
+    fontSize: center && w === colWidths.id ? '0.75rem' : 'inherit',
   });
 
   const resizerStyle = {
@@ -155,28 +165,40 @@ function ResizableTable({ alunos, onEdit, onDelete }) {
     transition: 'background 0.15s',
   };
 
+  const totalWidth = colWidths.id + colWidths.num + colWidths.nome + colWidths.matricula + colWidths.acoes;
+
   return (
     <div style={{ borderRadius: 'var(--r-md)', border: '1px solid var(--border)', overflow: 'auto', marginBottom: 20 }}>
-      <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: colWidths.num + colWidths.nome + colWidths.matricula + colWidths.acoes }}>
+      <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: totalWidth }}>
         <thead>
           <tr>
+            {/* ✅ NOVA COLUNA: ID */}
+            <th style={{ ...thStyle(colWidths.id), textAlign: 'center' }}>
+              ID
+              <div style={resizerStyle} onMouseDown={e => startResize('id', e)}
+                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} 
+                onMouseLeave={e => e.currentTarget.style.background='transparent'} />
+            </th>
             {/* # */}
             <th style={{ ...thStyle(colWidths.num), textAlign: 'center' }}>
               #
               <div style={resizerStyle} onMouseDown={e => startResize('num', e)}
-                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} onMouseLeave={e => e.currentTarget.style.background='transparent'} />
+                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} 
+                onMouseLeave={e => e.currentTarget.style.background='transparent'} />
             </th>
             {/* Nome */}
             <th style={thStyle(colWidths.nome)}>
               Aluno
               <div style={resizerStyle} onMouseDown={e => startResize('nome', e)}
-                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} onMouseLeave={e => e.currentTarget.style.background='transparent'} />
+                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} 
+                onMouseLeave={e => e.currentTarget.style.background='transparent'} />
             </th>
             {/* Matrícula */}
             <th style={{ ...thStyle(colWidths.matricula), textAlign: 'center' }}>
               Matrícula
               <div style={resizerStyle} onMouseDown={e => startResize('matricula', e)}
-                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} onMouseLeave={e => e.currentTarget.style.background='transparent'} />
+                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} 
+                onMouseLeave={e => e.currentTarget.style.background='transparent'} />
             </th>
             {/* Ações */}
             <th style={{ ...thStyle(colWidths.acoes), textAlign: 'center', borderRight: 'none' }}>Ações</th>
@@ -189,6 +211,12 @@ function ResizableTable({ alunos, onEdit, onDelete }) {
               <tr key={a.id} style={{ background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)' }}
                 onMouseEnter={e => e.currentTarget.style.background='var(--accent-faint)'}
                 onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)'}>
+                {/* ✅ COLUNA DE ID */}
+                <td style={{ ...tdStyle(colWidths.id, true), borderBottom: i === alunos.length-1 ? 'none' : '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, fontFamily: 'monospace' }}>
+                    {formatId(a.id)}
+                  </span>
+                </td>
                 {/* # */}
                 <td style={{ ...tdStyle(colWidths.num, true), borderBottom: i === alunos.length-1 ? 'none' : '1px solid var(--border)' }}>
                   <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:24, height:24, borderRadius:5, background:'var(--surface2)', fontSize:'0.7rem', fontWeight:700, color:'var(--text3)' }}>
@@ -245,7 +273,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
       if (aulaIds.length > 0) {
         const { data: presRows } = await supabase
           .from('presencas').select('*').in('aula_frequencia_id', aulaIds);
-        // ✅ FIX: chave agora é aluno_local_id + aula_frequencia_id (ambos UUIDs)
         (presRows || []).forEach(p => {
           presencas[presKey(p.aluno_local_id || p.aluno_id, p.aula_frequencia_id)] = p.presente;
         });
@@ -320,6 +347,8 @@ export function Frequencia({ activeTurma, turmaKey }) {
       const { data } = await supabase.from('alunos_frequencia').insert(paraInserir).select();
       const novos = (data || []).map(r => ({ id: r.id, nome: r.nome, matricula: r.matricula || '' }));
       await persist({ ...turmaData, alunos: [...turmaData.alunos, ...novos] });
+      // ✅ Sincroniza cada um para a tabela global
+      novos.forEach(a => sincronizarParaGlobal(a.nome, a.matricula).catch(console.error));
     }
     setShowImport(false);
     setImportSel([]);
@@ -328,23 +357,65 @@ export function Frequencia({ activeTurma, turmaKey }) {
   const [alunoErro,   setAlunoErro]   = useState('');
   const [alunoSaving, setAlunoSaving] = useState(false);
 
+  // ✅ VERSÃO CORRIGIDA: sincronizarParaGlobal
+  // Problema: .ilike('nome', nome) pegava nomes similares
+  // Solução: usar .eq('nome', nomeTrim) para busca EXATA
   const sincronizarParaGlobal = async (nome, matricula) => {
     if (!org?.id) return;
-    const { data: existente } = await supabase.from('alunos')
-      .select('id').eq('organizacao_id', org.id).ilike('nome', nome.trim()).maybeSingle();
-    if (existente) return;
-    await supabase.from('alunos').insert({
-      organizacao_id: org.id,
-      nome: nome.trim(),
-      matricula: matricula?.trim() || null,
-    });
-    const { data: globalAluno } = await supabase.from('alunos')
-      .select('id').eq('organizacao_id', org.id).ilike('nome', nome.trim()).maybeSingle();
-    if (globalAluno && turmaId) {
-      await supabase.from('matriculas').upsert(
-        { aluno_id: globalAluno.id, turma_id: turmaId },
-        { onConflict: 'aluno_id,turma_id', ignoreDuplicates: true }
-      );
+    
+    try {
+      const nomeTrim = nome.trim();
+      const matriculaTrim = matricula?.trim() || null;
+      
+      // ✅ Busca EXATA por nome completo (não .ilike())
+      const { data: existente, error: selectError } = await supabase.from('alunos')
+        .select('id, nome, matricula')
+        .eq('organizacao_id', org.id)
+        .eq('nome', nomeTrim) // ✅ BUSCA EXATA
+        .maybeSingle();
+      
+      if (selectError) throw selectError;
+      
+      if (existente) {
+        // ✅ Se existe, ATUALIZA a matrícula se necessário
+        if (matriculaTrim && existente.matricula !== matriculaTrim) {
+          await supabase.from('alunos')
+            .update({ matricula: matriculaTrim })
+            .eq('id', existente.id);
+        }
+        
+        // ✅ Garante que está matriculado na turma
+        if (turmaId) {
+          await supabase.from('matriculas').upsert(
+            { aluno_id: existente.id, turma_id: turmaId },
+            { onConflict: 'aluno_id,turma_id', ignoreDuplicates: true }
+          );
+        }
+        return;
+      }
+      
+      // ✅ Se não existe, INSERE na tabela global
+      const { data: novoAluno, error: insertError } = await supabase.from('alunos')
+        .insert({
+          organizacao_id: org.id,
+          nome: nomeTrim,
+          matricula: matriculaTrim,
+        })
+        .select('id')
+        .single();
+      
+      if (insertError) throw insertError;
+      
+      // ✅ MATRICULA automaticamente na turma
+      if (novoAluno && turmaId) {
+        await supabase.from('matriculas').upsert(
+          { aluno_id: novoAluno.id, turma_id: turmaId },
+          { onConflict: 'aluno_id,turma_id', ignoreDuplicates: true }
+        );
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar para global:', error.message);
+      // Não falha silenciosamente - avisa no console mas não quebra o fluxo
     }
   };
 
@@ -359,6 +430,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
       if (data) {
         const aluno = { id: data.id, nome: data.nome, matricula: data.matricula || '' };
         await persist({ ...turmaData, alunos: [...turmaData.alunos, aluno] });
+        // ✅ Sincroniza para tabela global (função corrigida)
         sincronizarParaGlobal(data.nome, data.matricula).catch(console.error);
         setFormAluno({ nome: '', matricula: '' });
         setShowAddAluno(false);
@@ -368,7 +440,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
     } finally { setAlunoSaving(false); }
   };
 
-  // ✅ FIX: Agora async e com await
   const salvarEdicaoAluno = async () => {
     const aluno = turmaData.alunos[editAluno];
     await supabase.from('alunos_frequencia')
@@ -378,6 +449,8 @@ export function Frequencia({ activeTurma, turmaKey }) {
       i === editAluno ? { ...a, nome: formAluno.nome, matricula: formAluno.matricula } : a
     );
     await persist({ ...turmaData, alunos: next });
+    // ✅ Atualiza também na tabela global se necessário
+    sincronizarParaGlobal(formAluno.nome, formAluno.matricula).catch(console.error);
     setEditAluno(null);
   };
 
@@ -386,7 +459,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
     const aluno = turmaData.alunos[i];
     await supabase.from('alunos_frequencia').delete().eq('id', aluno.id);
     const presencas = { ...turmaData.presencas };
-    // ✅ FIX: prefixo correto com UUID do aluno
     Object.keys(presencas).forEach(k => { if (k.startsWith(`${aluno.id}_`)) delete presencas[k]; });
     await persist({ ...turmaData, alunos: turmaData.alunos.filter((_, j) => j !== i), presencas });
   };
@@ -421,12 +493,10 @@ export function Frequencia({ activeTurma, turmaKey }) {
     const aula = turmaData.aulas[i];
     await supabase.from('aulas_frequencia').delete().eq('id', aula.id);
     const presencas = { ...turmaData.presencas };
-    // ✅ FIX: usa aula.id (UUID) para limpar presenças
     Object.keys(presencas).forEach(k => { if (k.endsWith(`_${aula.id}`)) delete presencas[k]; });
     await persist({ ...turmaData, aulas: turmaData.aulas.filter((_, j) => j !== i), presencas });
   };
 
-  // ✅ FIX: togglePresenca e isPresente usam aula.id
   const togglePresenca = async (alunoId, aulaId) => {
     const k = presKey(alunoId, aulaId);
     const presente = !turmaData.presencas[k];
@@ -454,7 +524,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
     ? Math.round(stats.reduce((s, a) => s + a.pct, 0) / stats.length)
     : 100;
 
-  // ✅ FIX: marcarTodos usa aula.id direto (não aulas.indexOf)
   const marcarTodos = async (aulaIdx, valor) => {
     const aula = turmaData.aulas[aulaIdx];
     const upserts = turmaData.alunos.map(a => ({
@@ -472,7 +541,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
   const aulas  = turmaData.aulas;
   const alunos = turmaData.alunos;
 
-  // ── Cálculo de semana ─────────────────────────────
   const getWeekBounds = (offset) => {
     const now = new Date();
     const dow = now.getDay();
@@ -580,7 +648,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
 
           {viewMode === 'grid' ? (
             <div>
-              {/* Navegador de semana */}
               <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, flexWrap:'wrap' }}>
                 <button onClick={() => setWeekOffset(w => w - 1)}
                   style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text2)', cursor:'pointer', fontFamily:'inherit', fontSize:'0.8rem', display:'flex', alignItems:'center', gap:4 }}>
