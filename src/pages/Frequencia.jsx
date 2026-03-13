@@ -67,7 +67,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
       const { data: aulasRows } = await supabase
         .from('aulas_frequencia').select('*').eq('turma_id', turmaId).order('data');
 
-      const aulas = (aulasRows || []).map(r => ({ id: r.id, data: r.data, disciplina: r.disciplina_nome || '' }));
+      const aulas = (aulasRows || []).map(r => ({ id: r.id, data: r.data, disciplina: r.disciplina_nome || r.disciplina || '' }));
 
       const aulaIds = aulas.map(a => a.id);
       let presencas = {};
@@ -204,7 +204,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
     setAulaSaving(true); setAulaErro('');
     try {
       const { data, error } = await supabase.from('aulas_frequencia')
-        .insert({ turma_id: turmaId, data: formAula.data, disciplina_nome: formAula.disciplina })
+        .insert({ turma_id: turmaId, data: formAula.data, disciplina: formAula.disciplina })
         .select().single();
       if (error) {
         if (error.code === '23505') throw new Error(`Já existe uma aula registrada em ${formAula.data}. Escolha outra data.`);

@@ -316,7 +316,8 @@ a:hover { text-decoration: underline; }
 ═══════════════════════════════════════════════════════ */
 .app-shell {
   display: flex;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 /* ─── Sidebar ──────────────────────────────────────────── */
@@ -331,7 +332,7 @@ a:hover { text-decoration: underline; }
   min-width: var(--sidebar-w);
   transition: width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1);
   z-index: 100;
-  position: relative; /* para o botão de colapso se posicionar corretamente */
+  /* position: relative para o botão de colapso — NÃO duplicar sticky aqui */
 }
 .sidebar-wrapper.collapsed {
   width: 64px;
@@ -523,10 +524,11 @@ a:hover { text-decoration: underline; }
 .main-content {
   flex: 1;
   min-width: 0;
-  min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .page-wrap {
