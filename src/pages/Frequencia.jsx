@@ -7,6 +7,19 @@ import { TURMAS, ALUNO_CORES } from '../data/turmas.js';
 import { TURMA_IDS } from '../data/ids.js';
 import { SquaresFour, ListBullets, CheckCircle, XCircle, Trash } from '@phosphor-icons/react';
 
+// ── Componente Modal (definido ANTES de usar) ──────────────────
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Funções auxiliares ──────────────────────────────────────────
 async function getAlunosMatriculados(turmaId) {
   const { data } = await supabase
     .from('matriculas')
@@ -34,17 +47,6 @@ async function getAlunosFromGrupos(turmaId) {
   return alunos;
 }
 
-function Modal({ title, onClose, children }) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">{title}</div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 const initials = (nome) => nome.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 const fmtDate  = (iso) => iso ? iso.slice(8,10) + '/' + iso.slice(5,7) : '';
 const todayISO = () => {
@@ -55,6 +57,53 @@ const todayISO = () => {
 // ✅ FIX: chave usa aula.id (UUID) — igual ao que o banco retorna
 const presKey = (alunoId, aulaId) => `${alunoId}_${aulaId}`;
 
+// ── Tabela com scroll horizontal duplicado no topo e embaixo ─────
+function SyncedScrollTable({ children }) {
+  const topRef    = useRef(null);
+  const bottomRef = useRef(null);
+  const syncingRef = useRef(false);
+
+  const onTopScroll = () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    if (bottomRef.current) bottomRef.current.scrollLeft = topRef.current.scrollLeft;
+    syncingRef.current = false;
+  };
+  const onBottomScroll = () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    if (topRef.current) topRef.current.scrollLeft = bottomRef.current.scrollLeft;
+    syncingRef.current = false;
+  };
+
+  // Mede largura real da tabela para a barra do topo
+  const [tableW, setTableW] = useState(0);
+  const tableRef = useRef(null);
+  useEffect(() => {
+    if (!tableRef.current) return;
+    const obs = new ResizeObserver(() => {
+      setTableW(tableRef.current?.scrollWidth || 0);
+    });
+    obs.observe(tableRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div>
+      {/* Barra de scroll do TOPO */}
+      <div ref={topRef} onScroll={onTopScroll}
+        style={{ overflowX: 'auto', overflowY: 'hidden', height: 12, marginBottom: 4 }}>
+        <div style={{ width: tableW, height: 1 }} />
+      </div>
+      {/* Tabela real */}
+      <div ref={el => { bottomRef.current = el; tableRef.current = el; }}
+        onScroll={onBottomScroll}
+        style={{ overflowX: 'auto', overflowY: 'visible' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // ── Tabela com colunas redimensionáveis ──────────────────────────
 function ResizableTable({ alunos, onEdit, onDelete }) {
@@ -224,6 +273,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
   const [formAluno,    setFormAluno]    = useState({ nome: '', matricula: '' });
   const [formAula,     setFormAula]     = useState({ data: todayISO(), disciplina: '' });
   const [viewMode,     setViewMode]     = useState('grid');
+  const [weekOffset,   setWeekOffset]   = useState(0);
   const [importSel,    setImportSel]    = useState([]);
   const [syncMsg,      setSyncMsg]      = useState('');
   const [syncing,      setSyncing]      = useState(false);
@@ -250,7 +300,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
       if (error) throw error;
       const inseridos = (data || []).map(r => ({ id: r.id, nome: r.nome, matricula: r.matricula || '' }));
       await persist({ ...turmaData, alunos: [...turmaData.alunos, ...inseridos] });
-      // Sincroniza para tabela global
       inseridos.forEach(a => sincronizarParaGlobal(a.nome, a.matricula).catch(console.error));
       setSyncMsg(`✓ ${inseridos.length} aluno${inseridos.length > 1 ? 's' : ''} adicionado${inseridos.length > 1 ? 's' : ''} da lista global.`);
     } catch(e) {
@@ -279,20 +328,16 @@ export function Frequencia({ activeTurma, turmaKey }) {
   const [alunoErro,   setAlunoErro]   = useState('');
   const [alunoSaving, setAlunoSaving] = useState(false);
 
-  // Sincroniza aluno para a tabela global de alunos (usada pela aba Alunos)
   const sincronizarParaGlobal = async (nome, matricula) => {
     if (!org?.id) return;
-    // Verifica se já existe pelo nome+org
     const { data: existente } = await supabase.from('alunos')
       .select('id').eq('organizacao_id', org.id).ilike('nome', nome.trim()).maybeSingle();
-    if (existente) return; // já existe, não duplica
-    // Cria na tabela global
+    if (existente) return;
     await supabase.from('alunos').insert({
       organizacao_id: org.id,
       nome: nome.trim(),
       matricula: matricula?.trim() || null,
     });
-    // Matricula na turma automaticamente
     const { data: globalAluno } = await supabase.from('alunos')
       .select('id').eq('organizacao_id', org.id).ilike('nome', nome.trim()).maybeSingle();
     if (globalAluno && turmaId) {
@@ -314,7 +359,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
       if (data) {
         const aluno = { id: data.id, nome: data.nome, matricula: data.matricula || '' };
         await persist({ ...turmaData, alunos: [...turmaData.alunos, aluno] });
-        // Sincroniza para tabela global de alunos (aba Alunos)
         sincronizarParaGlobal(data.nome, data.matricula).catch(console.error);
         setFormAluno({ nome: '', matricula: '' });
         setShowAddAluno(false);
@@ -324,6 +368,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
     } finally { setAlunoSaving(false); }
   };
 
+  // ✅ FIX: Agora async e com await
   const salvarEdicaoAluno = async () => {
     const aluno = turmaData.alunos[editAluno];
     await supabase.from('alunos_frequencia')
@@ -381,7 +426,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
     await persist({ ...turmaData, aulas: turmaData.aulas.filter((_, j) => j !== i), presencas });
   };
 
-  // ✅ FIX: togglePresenca e isPresente agora usam aula.id em vez de aulaIdx
+  // ✅ FIX: togglePresenca e isPresente usam aula.id
   const togglePresenca = async (alunoId, aulaId) => {
     const k = presKey(alunoId, aulaId);
     const presente = !turmaData.presencas[k];
@@ -396,7 +441,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
 
   const isPresente = (alunoId, aulaId) => !!turmaData.presencas[presKey(alunoId, aulaId)];
 
-  // ✅ FIX: stats usa aula.id, e turmaData está nas dependências corretas
   const stats = useMemo(() => {
     return turmaData.alunos.map(a => {
       const total    = turmaData.aulas.length;
@@ -410,7 +454,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
     ? Math.round(stats.reduce((s, a) => s + a.pct, 0) / stats.length)
     : 100;
 
-  // ✅ FIX: marcarTodos usa aula.id em vez de aulaIdx
+  // ✅ FIX: marcarTodos usa aula.id direto (não aulas.indexOf)
   const marcarTodos = async (aulaIdx, valor) => {
     const aula = turmaData.aulas[aulaIdx];
     const upserts = turmaData.alunos.map(a => ({
@@ -427,6 +471,23 @@ export function Frequencia({ activeTurma, turmaKey }) {
 
   const aulas  = turmaData.aulas;
   const alunos = turmaData.alunos;
+
+  // ── Cálculo de semana ─────────────────────────────
+  const getWeekBounds = (offset) => {
+    const now = new Date();
+    const dow = now.getDay();
+    const mon = new Date(now); mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+    mon.setHours(0,0,0,0);
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23,59,59,999);
+    return { mon, sun };
+  };
+  const { mon, sun } = getWeekBounds(weekOffset);
+  const aulasNaSemana = [...aulas]
+    .filter(au => { const d = new Date(au.data + 'T12:00:00'); return d >= mon && d <= sun; })
+    .sort((a, b) => a.data.localeCompare(b.data));
+  const fmtWeek = (d) => d.toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+  const isCurrentWeek = weekOffset === 0;
+  const aulasForaW = aulas.filter(au => { const d = new Date(au.data + 'T12:00:00'); return d < mon || d > sun; });
 
   return (
     <div className="anim-up">
@@ -493,7 +554,6 @@ export function Frequencia({ activeTurma, turmaKey }) {
       ) : aulas.length === 0 ? (
         <div>
           <div className="section-label">Alunos cadastrados</div>
-          {/* Tabela de alunos com colunas redimensionáveis */}
           <ResizableTable alunos={alunos} onEdit={(i,a) => { setEditAluno(i); setFormAluno({ nome: a.nome, matricula: a.matricula || '' }); }} onDelete={excluirAluno} />
           <div style={{ color: 'var(--text3)', fontSize: '0.875rem' }}>
             Clique em "+ Registrar aula" para começar o controle de frequência.
@@ -519,77 +579,123 @@ export function Frequencia({ activeTurma, turmaKey }) {
           </div>
 
           {viewMode === 'grid' ? (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8125rem', minWidth: 500 }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px 0 0 0', textAlign: 'left', color: 'var(--text3)', fontWeight: 700, position: 'sticky', left: 0, zIndex: 2, minWidth: 160 }}>
-                      Aluno
-                    </th>
-                    {aulas.map((au, i) => (
-                      <th key={au.id} style={{ padding: '8px 6px', background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text2)', fontWeight: 600, minWidth: 64 }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>{fmtDate(au.data)}</div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--accent-light)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>{au.disciplina || '—'}</div>
-                        <div style={{ display: 'flex', gap: 2, justifyContent: 'center', marginTop: 4 }}>
-                          <button title="Marcar todos presente" onClick={() => marcarTodos(i, true)}
-                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)', cursor: 'pointer' }}>✓</button>
-                          <button title="Marcar todos ausente" onClick={() => marcarTodos(i, false)}
-                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--red-border)', cursor: 'pointer' }}>✗</button>
-                          <button title="Remover aula" onClick={() => excluirAula(i)}
-                            style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: 'var(--surface3)', color: 'var(--text3)', border: '1px solid var(--border)', cursor: 'pointer' }}><Trash size={13} /></button>
-                        </div>
-                      </th>
-                    ))}
-                    <th style={{ padding: '10px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text3)', fontWeight: 700, borderRadius: '0 8px 0 0', minWidth: 70 }}>
-                      %
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.map((a, ri) => {
-                    const cor = ALUNO_CORES[ri % ALUNO_CORES.length];
-                    const riskColor = a.pct < 75 ? 'var(--red)' : a.pct < 85 ? 'var(--amber)' : 'var(--green)';
-                    return (
-                      <tr key={a.id}>
-                        <td style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text3)', minWidth: 18, textAlign: 'right', flexShrink: 0 }}>#{ri + 1}</div>
-                            <div className="aluno-avatar" style={{ background: cor.bg, color: cor.text, width: 26, height: 26, fontSize: '0.7rem' }}>
-                              {initials(a.nome)}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 500, color: 'var(--text)' }}>{a.nome}</div>
-                              {a.matricula && <div style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>{a.matricula}</div>}
-                            </div>
-                            <div style={{ marginLeft: 'auto', display: 'flex', gap: 3 }}>
-                              <button className="icon-btn-sm" style={{ width: 22, height: 22, fontSize: 11 }} onClick={() => { setEditAluno(ri); setFormAluno({ nome: a.nome, matricula: a.matricula || '' }); }}>✏️</button>
-                              <button className="icon-btn-sm danger" style={{ width: 22, height: 22, display:"flex",alignItems:"center",justifyContent:"center" }} onClick={() => excluirAluno(ri)}><Trash size={11} /></button>
-                            </div>
-                          </div>
-                        </td>
-                        {aulas.map((au) => {
-                          // ✅ FIX: passa au.id em vez do índice
-                          const pres = isPresente(a.id, au.id);
+            <div>
+              {/* Navegador de semana */}
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, flexWrap:'wrap' }}>
+                <button onClick={() => setWeekOffset(w => w - 1)}
+                  style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text2)', cursor:'pointer', fontFamily:'inherit', fontSize:'0.8rem', display:'flex', alignItems:'center', gap:4 }}>
+                  ← Anterior
+                </button>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flex:1, justifyContent:'center' }}>
+                  <span style={{ fontWeight:700, color:'var(--text)', fontSize:'0.9rem' }}>
+                    {fmtWeek(mon)} — {fmtWeek(sun)}
+                  </span>
+                  {isCurrentWeek && (
+                    <span style={{ fontSize:'0.68rem', fontWeight:700, background:'var(--accent)', color:'white', borderRadius:99, padding:'2px 8px' }}>
+                      Esta semana
+                    </span>
+                  )}
+                  <span style={{ fontSize:'0.75rem', color:'var(--text3)' }}>
+                    {aulasNaSemana.length} aula{aulasNaSemana.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <button onClick={() => setWeekOffset(w => w + 1)} disabled={isCurrentWeek}
+                  style={{ padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color: isCurrentWeek ? 'var(--text3)' : 'var(--text2)', cursor: isCurrentWeek ? 'default' : 'pointer', fontFamily:'inherit', fontSize:'0.8rem', opacity: isCurrentWeek ? 0.4 : 1, display:'flex', alignItems:'center', gap:4 }}>
+                  Próxima →
+                </button>
+                {weekOffset !== 0 && (
+                  <button onClick={() => setWeekOffset(0)}
+                    style={{ padding:'5px 10px', borderRadius:8, border:'1px solid var(--accent)', background:'var(--accent-faint)', color:'var(--accent-light)', cursor:'pointer', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600 }}>
+                    Hoje
+                  </button>
+                )}
+              </div>
+
+              {aulasNaSemana.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'40px 20px', color:'var(--text3)', background:'var(--surface)', borderRadius:12, border:'1px dashed var(--border)' }}>
+                  <div style={{ fontSize:'1.5rem', marginBottom:8 }}>📭</div>
+                  <div style={{ fontWeight:600, marginBottom:4 }}>Nenhuma aula nesta semana</div>
+                  <div style={{ fontSize:'0.82rem' }}>
+                    {aulasForaW.length > 0 ? `Há ${aulasForaW.length} aula(s) em outras semanas — navegue com ← →` : 'Use "+ Registrar aula" para adicionar.'}
+                  </div>
+                </div>
+              ) : (
+                <SyncedScrollTable>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8125rem', minWidth: 400 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px 0 0 0', textAlign: 'left', color: 'var(--text3)', fontWeight: 700, position: 'sticky', left: 0, zIndex: 2, minWidth: 180 }}>
+                          Aluno
+                        </th>
+                        {aulasNaSemana.map((au, i) => {
+                          const dow = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(au.data+'T12:00:00').getDay()];
                           return (
-                            <td
-                              key={au.id}
-                              style={{ padding: 6, border: '1px solid var(--border)', textAlign: 'center', background: pres ? 'rgba(74,222,128,0.06)' : 'rgba(248,113,113,0.04)', cursor: 'pointer' }}
-                              onClick={() => togglePresenca(a.id, au.id)}
-                              title={pres ? 'Presente — clique para marcar falta' : 'Falta — clique para marcar presença'}
-                            >
-                              {pres ? <CheckCircle size={18} color="var(--green)" weight="fill" /> : <XCircle size={18} color="var(--red)" weight="fill" />}
-                            </td>
+                          <th key={au.id} style={{ padding: '8px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text2)', fontWeight: 600, minWidth: 80 }}>
+                            <div style={{ fontSize: '0.65rem', color: 'var(--accent-light)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em' }}>{dow}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text)', fontWeight:700, marginTop:1 }}>{fmtDate(au.data)}</div>
+                            {au.disciplina && <div style={{ fontSize: '0.65rem', color: 'var(--text3)', marginTop: 2, maxWidth: 70, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{au.disciplina}</div>}
+                            <div style={{ display: 'flex', gap: 2, justifyContent: 'center', marginTop: 5 }}>
+                              <button title="Todos presentes" onClick={() => marcarTodos(aulas.indexOf(au), true)}
+                                style={{ fontSize: 10, padding: '2px 5px', borderRadius: 4, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)', cursor: 'pointer', fontWeight:700 }}>✓</button>
+                              <button title="Todos ausentes" onClick={() => marcarTodos(aulas.indexOf(au), false)}
+                                style={{ fontSize: 10, padding: '2px 5px', borderRadius: 4, background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--red-border)', cursor: 'pointer', fontWeight:700 }}>✗</button>
+                              <button title="Remover aula" onClick={() => excluirAula(aulas.indexOf(au))}
+                                style={{ fontSize: 10, padding: '2px 4px', borderRadius: 4, background: 'var(--surface3)', color: 'var(--text3)', border: '1px solid var(--border)', cursor: 'pointer', display:'flex', alignItems:'center' }}><Trash size={11} /></button>
+                            </div>
+                          </th>
                           );
                         })}
-                        <td style={{ padding: '10px 10px', border: '1px solid var(--border)', textAlign: 'center', background: 'var(--surface)' }}>
-                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: riskColor, fontSize: '0.9375rem' }}>{a.pct}%</div>
-                          <div style={{ fontSize: '0.68rem', color: 'var(--text3)' }}>{a.presente}/{a.total}</div>
-                        </td>
+                        <th style={{ padding: '10px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text3)', fontWeight: 700, borderRadius: '0 8px 0 0', minWidth: 60 }}>
+                          Total
+                        </th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {stats.map((a, ri) => {
+                        const cor = ALUNO_CORES[ri % ALUNO_CORES.length];
+                        const riskColor = a.pct < 75 ? 'var(--red)' : a.pct < 85 ? 'var(--amber)' : 'var(--green)';
+                        return (
+                          <tr key={a.id}>
+                            <td style={{ padding: '9px 14px', background: 'var(--surface)', border: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text3)', minWidth: 16, textAlign: 'right', flexShrink: 0 }}>#{ri + 1}</div>
+                                <div className="aluno-avatar" style={{ background: cor.bg, color: cor.text, width: 24, height: 24, fontSize: '0.65rem' }}>
+                                  {initials(a.nome)}
+                                </div>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <div style={{ fontWeight: 500, color: 'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.nome}</div>
+                                  {a.matricula && <div style={{ fontSize: '0.65rem', color: 'var(--text3)' }}>{a.matricula}</div>}
+                                </div>
+                                <div style={{ display: 'flex', gap: 2, flexShrink:0 }}>
+                                  <button className="icon-btn-sm" style={{ width: 20, height: 20, fontSize: 10 }} onClick={() => { setEditAluno(ri); setFormAluno({ nome: a.nome, matricula: a.matricula || '' }); }}>✏️</button>
+                                  <button className="icon-btn-sm danger" style={{ width: 20, height: 20, display:"flex",alignItems:"center",justifyContent:"center" }} onClick={() => excluirAluno(ri)}><Trash size={10} /></button>
+                                </div>
+                              </div>
+                            </td>
+                            {aulasNaSemana.map((au) => {
+                              const pres = isPresente(a.id, au.id);
+                              return (
+                                <td key={au.id}
+                                  style={{ padding: 6, border: '1px solid var(--border)', textAlign: 'center', background: pres ? 'rgba(74,222,128,0.07)' : 'rgba(248,113,113,0.04)', cursor: 'pointer', transition:'background 0.1s' }}
+                                  onClick={() => togglePresenca(a.id, au.id)}
+                                  title={pres ? 'Presente — clique para falta' : 'Falta — clique para presença'}>
+                                  {pres
+                                    ? <CheckCircle size={20} color="var(--green)" weight="fill" />
+                                    : <XCircle size={20} color="var(--red)" weight="fill" />}
+                                </td>
+                              );
+                            })}
+                            <td style={{ padding: '8px 10px', border: '1px solid var(--border)', textAlign: 'center', background: 'var(--surface)' }}>
+                              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: riskColor, fontSize: '0.95rem' }}>{a.pct}%</div>
+                              <div style={{ fontSize: '0.65rem', color: 'var(--text3)' }}>{a.presente}/{a.total}</div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </SyncedScrollTable>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
