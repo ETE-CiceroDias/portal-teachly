@@ -1,4 +1,4 @@
-// pages/Anotacoes.jsx — Editor robusto com tags, filtros e arquivar
+// pages/Anotacoes.jsx — Editor rico com blocos, avisos, listas e formatação
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
@@ -6,7 +6,9 @@ import { ConfirmModal } from '../components/ConfirmModal.jsx';
 import {
   Plus, MagnifyingGlass, PushPin, Archive,
   ArrowUUpLeft, Trash, Tag, X, Check, ArrowLeft,
-  Image, Link as LinkIcon, TextB, TextItalic, ListBullets,
+  TextB, TextItalic, ListBullets, ListNumbers,
+  Warning, Info, CheckCircle, Minus, Link as LinkIcon,
+  Quotes,
 } from '@phosphor-icons/react';
 
 const CORES_NOTA = [
@@ -17,16 +19,122 @@ const CORES_NOTA = [
 ];
 
 const TAGS_PADRAO = [
-  { id:'geral',          label:'Geral',           cor:'#6b7280' },
-  { id:'administrativo', label:'Administrativo',  cor:'#2563eb' },
-  { id:'aula',           label:'Aula',            cor:'#7c3aed' },
-  { id:'ideia',          label:'Ideia',           cor:'#059669' },
-  { id:'importante',     label:'Importante',      cor:'#dc2626' },
-  { id:'turma',          label:'Turma',           cor:'#d97706' },
+  { id:'geral',          label:'Geral',          cor:'#6b7280' },
+  { id:'administrativo', label:'Administrativo', cor:'#2563eb' },
+  { id:'aula',           label:'Aula',           cor:'#7c3aed' },
+  { id:'ideia',          label:'Ideia',          cor:'#059669' },
+  { id:'importante',     label:'Importante',     cor:'#dc2626' },
+  { id:'turma',          label:'Turma',          cor:'#d97706' },
 ];
 
 const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' }) : '';
 
+// ── Renderiza markdown simples para preview nos cards ──────────────
+function renderPreview(text) {
+  if (!text) return '';
+  return text.replace(/\[aviso[^\]]*\]([^\[]*)\[\/aviso\]/g, '$1')
+             .replace(/\*\*(.*?)\*\*/g, '$1')
+             .replace(/_(.*?)_/g, '$1')
+             .replace(/^#{1,3}\s/gm, '')
+             .replace(/^[-*]\s/gm, '• ')
+             .replace(/^\d+\.\s/gm, '')
+             .replace(/^---$/gm, '')
+             .trim();
+}
+
+// ── Renderiza conteúdo rico no editor preview ──────────────────────
+function RichContent({ text }) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  const elements = [];
+  let i = 0;
+
+  const inlineFormat = (str) => {
+    const parts = str.split(/(\*\*.*?\*\*|_.*?_|\[.*?\]\(.*?\))/g);
+    return parts.map((p, idx) => {
+      if (p.startsWith('**') && p.endsWith('**')) return <strong key={idx}>{p.slice(2,-2)}</strong>;
+      if (p.startsWith('_') && p.endsWith('_')) return <em key={idx}>{p.slice(1,-1)}</em>;
+      if (p.match(/^\[.*?\]\(.*?\)$/)) {
+        const label = p.match(/\[(.*?)\]/)[1];
+        const url   = p.match(/\((.*?)\)/)[1];
+        return <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{color:'var(--accent)',textDecoration:'underline'}}>{label}</a>;
+      }
+      return p;
+    });
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Aviso block: [aviso tipo]...[/aviso]
+    const avisoMatch = line.match(/^\[aviso (info|sucesso|atencao|erro)\](.*)$/);
+    if (avisoMatch) {
+      const tipo = avisoMatch[1];
+      const content = [avisoMatch[2]];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('[/aviso]')) {
+        content.push(lines[i]); i++;
+      }
+      i++; // skip [/aviso]
+      const cfg = {
+        info:     { bg:'rgba(37,99,235,0.08)',  border:'#2563eb', icon:<Info size={15} weight="fill" color="#2563eb" />,    label:'Info' },
+        sucesso:  { bg:'rgba(5,150,105,0.08)',   border:'#059669', icon:<CheckCircle size={15} weight="fill" color="#059669" />, label:'Sucesso' },
+        atencao:  { bg:'rgba(217,119,6,0.08)',   border:'#d97706', icon:<Warning size={15} weight="fill" color="#d97706" />,  label:'Atenção' },
+        erro:     { bg:'rgba(220,38,38,0.08)',    border:'#dc2626', icon:<Warning size={15} weight="fill" color="#dc2626" />,  label:'Erro' },
+      }[tipo];
+      elements.push(
+        <div key={i} style={{ background:cfg.bg, border:`1px solid ${cfg.border}40`, borderLeft:`3px solid ${cfg.border}`, borderRadius:8, padding:'10px 14px', margin:'6px 0', display:'flex', gap:10, alignItems:'flex-start' }}>
+          <span style={{marginTop:2,flexShrink:0}}>{cfg.icon}</span>
+          <div style={{flex:1}}>
+            {content.map((c,ci) => <div key={ci} style={{color:'var(--text)',fontSize:'0.9rem',lineHeight:1.6}}>{inlineFormat(c)}</div>)}
+          </div>
+        </div>
+      );
+      continue;
+    }
+
+    // Heading
+    if (line.match(/^###\s/)) { elements.push(<h3 key={i} style={{fontSize:'1rem',fontWeight:700,color:'var(--text)',margin:'14px 0 4px'}}>{inlineFormat(line.slice(4))}</h3>); i++; continue; }
+    if (line.match(/^##\s/))  { elements.push(<h2 key={i} style={{fontSize:'1.15rem',fontWeight:700,color:'var(--text)',margin:'18px 0 6px'}}>{inlineFormat(line.slice(3))}</h2>); i++; continue; }
+    if (line.match(/^#\s/))   { elements.push(<h1 key={i} style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',margin:'22px 0 8px'}}>{inlineFormat(line.slice(2))}</h1>); i++; continue; }
+
+    // Lista não-ordenada
+    if (line.match(/^[-*]\s/)) {
+      const items = [];
+      while (i < lines.length && lines[i].match(/^[-*]\s/)) { items.push(lines[i].slice(2)); i++; }
+      elements.push(<ul key={i} style={{margin:'6px 0',paddingLeft:20,display:'flex',flexDirection:'column',gap:3}}>{items.map((it,ii)=><li key={ii} style={{color:'var(--text2)',fontSize:'0.9rem',lineHeight:1.6}}>{inlineFormat(it)}</li>)}</ul>);
+      continue;
+    }
+
+    // Lista ordenada
+    if (line.match(/^\d+\.\s/)) {
+      const items = [];
+      while (i < lines.length && lines[i].match(/^\d+\.\s/)) { items.push(lines[i].replace(/^\d+\.\s/,'')); i++; }
+      elements.push(<ol key={i} style={{margin:'6px 0',paddingLeft:20,display:'flex',flexDirection:'column',gap:3}}>{items.map((it,ii)=><li key={ii} style={{color:'var(--text2)',fontSize:'0.9rem',lineHeight:1.6}}>{inlineFormat(it)}</li>)}</ol>);
+      continue;
+    }
+
+    // Separador
+    if (line.trim() === '---') { elements.push(<hr key={i} style={{border:'none',borderTop:'1px solid var(--border)',margin:'16px 0'}} />); i++; continue; }
+
+    // Citação
+    if (line.match(/^>\s/)) {
+      elements.push(<blockquote key={i} style={{borderLeft:'3px solid var(--accent)',paddingLeft:12,margin:'6px 0',color:'var(--text2)',fontStyle:'italic',fontSize:'0.9rem'}}>{inlineFormat(line.slice(2))}</blockquote>);
+      i++; continue;
+    }
+
+    // Linha vazia
+    if (!line.trim()) { elements.push(<div key={i} style={{height:8}} />); i++; continue; }
+
+    // Parágrafo normal
+    elements.push(<p key={i} style={{margin:'2px 0',color:'var(--text2)',fontSize:'0.9rem',lineHeight:1.7}}>{inlineFormat(line)}</p>);
+    i++;
+  }
+
+  return <>{elements}</>;
+}
+
+// ── Tag badge ──────────────────────────────────────────────────────
 function TagBadge({ tag, onRemove, small }) {
   const t = TAGS_PADRAO.find(x => x.id === tag) || { label: tag, cor: '#6b7280' };
   return (
@@ -37,9 +145,11 @@ function TagBadge({ tag, onRemove, small }) {
   );
 }
 
+// ── Card de nota ───────────────────────────────────────────────────
 function CardNota({ nota, onOpen, onToggleFixar, onArquivar, onDelete }) {
   const cor = nota.cor || '#7c3aed';
   const tags = nota.tags || [];
+  const preview = renderPreview(nota.conteudo);
   return (
     <div onClick={() => onOpen(nota)} style={{ background:`linear-gradient(145deg,${cor}12,${cor}05)`, border:`1px solid ${cor}30`, borderTop:`3px solid ${cor}`, borderRadius:14, padding:'14px 16px', cursor:'pointer', transition:'all 0.18s', display:'flex', flexDirection:'column', gap:8 }}
       onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow=`0 8px 24px ${cor}20`; }}
@@ -50,9 +160,9 @@ function CardNota({ nota, onOpen, onToggleFixar, onArquivar, onDelete }) {
         </div>
         {nota.fixada && <PushPin size={13} color={cor} weight="fill" style={{ flexShrink:0, marginTop:2 }} />}
       </div>
-      {nota.conteudo && (
+      {preview && (
         <div style={{ fontSize:'0.82rem', color:'var(--text2)', lineHeight:1.55, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical' }}>
-          {nota.conteudo}
+          {preview}
         </div>
       )}
       {(tags.length > 0 || nota.turma_label) && (
@@ -80,23 +190,18 @@ function CardNota({ nota, onOpen, onToggleFixar, onArquivar, onDelete }) {
   );
 }
 
+// ── Editor fullscreen ──────────────────────────────────────────────
 function EditorFullscreen({ nota, turmas, onSave, onClose }) {
-  const [titulo,   setTitulo]   = useState(nota.titulo || '');
-  const [conteudo, setConteudo] = useState(nota.conteudo || '');
-  const [cor,      setCor]      = useState(nota.cor || '#7c3aed');
-  const [tags,     setTags]     = useState(nota.tags || []);
-  const [turmaId,  setTurmaId]  = useState(nota.turma_id || '');
-  const [showTags, setShowTags] = useState(false);
-  const [saved,    setSaved]    = useState(false);
-  const taRef = useRef();
-  const autoSaveRef = useRef();
-
-  useEffect(() => {
-    if (taRef.current) {
-      taRef.current.style.height = 'auto';
-      taRef.current.style.height = taRef.current.scrollHeight + 'px';
-    }
-  }, [conteudo]);
+  const [titulo,    setTitulo]    = useState(nota.titulo || '');
+  const [conteudo,  setConteudo]  = useState(nota.conteudo || '');
+  const [cor,       setCor]       = useState(nota.cor || '#7c3aed');
+  const [tags,      setTags]      = useState(nota.tags || []);
+  const [turmaId,   setTurmaId]   = useState(nota.turma_id || '');
+  const [saved,     setSaved]     = useState(false);
+  const [showTags,  setShowTags]  = useState(false);
+  const [preview,   setPreview]   = useState(false);
+  const taRef        = useRef(null);
+  const autoSaveRef  = useRef(null);
 
   const save = useCallback(() => {
     onSave({ ...nota, titulo, conteudo, cor, tags, turma_id: turmaId || null });
@@ -112,51 +217,110 @@ function EditorFullscreen({ nota, turmas, onSave, onClose }) {
 
   const toggleTag = (tagId) => setTags(prev => prev.includes(tagId) ? prev.filter(t => t !== tagId) : [...prev, tagId]);
 
-  const insertText = (before, after = '') => {
+  // Insere texto no cursor
+  const insert = (before, after = '', placeholder = '') => {
     const ta = taRef.current;
     if (!ta) return;
     const s = ta.selectionStart, e = ta.selectionEnd;
-    const sel = conteudo.slice(s, e);
-    setConteudo(conteudo.slice(0, s) + before + sel + after + conteudo.slice(e));
-    setTimeout(() => { ta.focus(); ta.setSelectionRange(s + before.length, e + before.length); }, 0);
+    const sel = conteudo.slice(s, e) || placeholder;
+    const next = conteudo.slice(0, s) + before + sel + after + conteudo.slice(e);
+    setConteudo(next);
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(s + before.length, s + before.length + sel.length);
+    }, 0);
   };
 
-  const btnStyle = { background:'none', border:'none', cursor:'pointer', color:'var(--text3)', padding:'5px 7px', borderRadius:5, display:'flex', alignItems:'center' };
+  // Insere no início da linha
+  const insertLine = (prefix) => {
+    const ta = taRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart;
+    const lineStart = conteudo.lastIndexOf('\n', s - 1) + 1;
+    const next = conteudo.slice(0, lineStart) + prefix + conteudo.slice(lineStart);
+    setConteudo(next);
+    setTimeout(() => { ta.focus(); ta.setSelectionRange(s + prefix.length, s + prefix.length); }, 0);
+  };
+
+  const btnStyle = (active) => ({
+    background: active ? 'var(--surface2)' : 'none',
+    border: 'none', cursor:'pointer',
+    color: active ? 'var(--text)' : 'var(--text3)',
+    padding:'5px 8px', borderRadius:6, display:'flex', alignItems:'center',
+    transition:'all 0.12s',
+  });
+
+  // Blocos de aviso prontos
+  const insertAviso = (tipo) => {
+    const labels = { info:'ℹ️ Informação', sucesso:'✅ Sucesso', atencao:'⚠️ Atenção', erro:'❌ Erro' };
+    insert(`\n[aviso ${tipo}]${labels[tipo]}\n`, '\n[/aviso]\n', '');
+  };
 
   return (
     <div style={{ position:'fixed', inset:0, zIndex:200, background:'var(--bg)', display:'flex', flexDirection:'column' }}>
-      {/* Toolbar */}
-      <div style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 20px', borderBottom:`2px solid ${cor}40`, background:`linear-gradient(90deg,${cor}0d,transparent)`, flexWrap:'wrap' }}>
-        <button onClick={async () => { clearTimeout(autoSaveRef.current); try { await save(); } catch(e) { console.error(e); } finally { onClose(); } }}
-          style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)', padding:'5px 12px', fontSize:'0.83rem', fontFamily:'inherit', fontWeight:600 }}>
+
+      {/* Toolbar principal */}
+      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'8px 16px', borderBottom:`2px solid ${cor}40`, background:`linear-gradient(90deg,${cor}0d,transparent)`, flexWrap:'wrap', rowGap:4 }}>
+
+        {/* Voltar */}
+        <button onClick={async () => { clearTimeout(autoSaveRef.current); await save(); onClose(); }}
+          style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)', padding:'5px 12px', fontSize:'0.83rem', fontFamily:'inherit', fontWeight:600, marginRight:4 }}>
           <ArrowLeft size={15} /> Voltar
         </button>
-        <div style={{ width:1, height:20, background:'var(--border)', margin:'0 2px' }} />
-        <button onClick={() => insertText('**','**')} title="Negrito" style={btnStyle}><TextB size={15} weight="bold" /></button>
-        <button onClick={() => insertText('_','_')} title="Itálico" style={btnStyle}><TextItalic size={15} /></button>
-        <button onClick={() => insertText('\n- ')} title="Lista" style={btnStyle}><ListBullets size={15} /></button>
-        <button onClick={() => insertText('![alt](',')')} title="Imagem" style={btnStyle}><Image size={15} /></button>
-        <button onClick={() => insertText('[texto](',')')} title="Link" style={btnStyle}><LinkIcon size={15} /></button>
-        <div style={{ width:1, height:20, background:'var(--border)', margin:'0 2px' }} />
 
-        {/* Tags dropdown */}
+        <div style={{ width:1, height:20, background:'var(--border)' }} />
+
+        {/* Formatação inline */}
+        <button onClick={() => insert('**','**','texto')} title="Negrito (Ctrl+B)" style={btnStyle(false)}><TextB size={15} weight="bold" /></button>
+        <button onClick={() => insert('_','_','texto')} title="Itálico" style={btnStyle(false)}><TextItalic size={15} /></button>
+        <button onClick={() => insert('[','](https://url.com)','link')} title="Link" style={btnStyle(false)}><LinkIcon size={15} /></button>
+        <button onClick={() => insertLine('> ')} title="Citação" style={btnStyle(false)}><Quotes size={15} /></button>
+
+        <div style={{ width:1, height:20, background:'var(--border)' }} />
+
+        {/* Listas */}
+        <button onClick={() => insertLine('- ')} title="Lista com marcadores" style={btnStyle(false)}><ListBullets size={15} /></button>
+        <button onClick={() => insertLine('1. ')} title="Lista numerada" style={btnStyle(false)}><ListNumbers size={15} /></button>
+        <button onClick={() => insert('\n---\n')} title="Separador" style={btnStyle(false)}><Minus size={15} /></button>
+
+        <div style={{ width:1, height:20, background:'var(--border)' }} />
+
+        {/* Títulos */}
+        {['#','##','###'].map((h,hi) => (
+          <button key={h} onClick={() => insertLine(h+' ')} title={`Título ${hi+1}`} style={{...btnStyle(false), fontWeight:700, fontSize: hi===0?'0.9rem':hi===1?'0.82rem':'0.75rem'}}>H{hi+1}</button>
+        ))}
+
+        <div style={{ width:1, height:20, background:'var(--border)' }} />
+
+        {/* Avisos */}
         <div style={{ position:'relative' }}>
-          <button onClick={() => setShowTags(p => !p)}
-            style={{ display:'flex', alignItems:'center', gap:5, background: showTags ? 'var(--surface2)' : 'none', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)', padding:'4px 10px', fontSize:'0.8rem', fontFamily:'inherit' }}>
-            <Tag size={13} /> Tags {tags.length > 0 && <span style={{ background:cor, color:'white', borderRadius:99, width:16, height:16, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem', fontWeight:700 }}>{tags.length}</span>}
+          <button onClick={() => setShowTags(p => !p)} style={{...btnStyle(showTags), gap:4, fontSize:'0.78rem', border:'1px solid var(--border)', borderRadius:6, padding:'4px 9px'}}>
+            <Warning size={13} /> Aviso
           </button>
           {showTags && (
-            <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:10, zIndex:10, minWidth:195, boxShadow:'0 8px 24px rgba(0,0,0,0.15)', display:'flex', flexDirection:'column', gap:4 }}>
-              {TAGS_PADRAO.map(t => (
-                <button key={t.id} onClick={() => toggleTag(t.id)}
-                  style={{ display:'flex', alignItems:'center', gap:8, background: tags.includes(t.id) ? t.cor+'18' : 'transparent', border:'none', borderRadius:6, padding:'6px 10px', cursor:'pointer', color: tags.includes(t.id) ? t.cor : 'var(--text2)', fontFamily:'inherit', fontSize:'0.83rem', fontWeight: tags.includes(t.id) ? 600 : 400 }}>
-                  {tags.includes(t.id) ? <Check size={12} weight="bold" /> : <span style={{ width:12 }} />}
-                  <span style={{ width:8, height:8, borderRadius:'50%', background:t.cor, flexShrink:0 }} />
-                  {t.label}
+            <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:6, zIndex:20, minWidth:160, boxShadow:'0 8px 24px rgba(0,0,0,0.2)', display:'flex', flexDirection:'column', gap:2 }}>
+              {[
+                { tipo:'info',    label:'ℹ️ Info',     cor:'#2563eb' },
+                { tipo:'sucesso', label:'✅ Sucesso',  cor:'#059669' },
+                { tipo:'atencao', label:'⚠️ Atenção',  cor:'#d97706' },
+                { tipo:'erro',    label:'❌ Erro',     cor:'#dc2626' },
+              ].map(a => (
+                <button key={a.tipo} onClick={() => { insertAviso(a.tipo); setShowTags(false); }}
+                  style={{ background:'none', border:'none', borderRadius:7, padding:'7px 12px', cursor:'pointer', color:'var(--text2)', fontFamily:'inherit', fontSize:'0.83rem', textAlign:'left', display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ width:3, height:16, background:a.cor, borderRadius:99 }} />
+                  {a.label}
                 </button>
               ))}
             </div>
           )}
+        </div>
+
+        {/* Tags da nota */}
+        <div style={{ position:'relative', marginLeft:4 }}>
+          <button onClick={() => setPreview(false)}
+            style={{...btnStyle(false), gap:4, fontSize:'0.78rem', border:'1px solid var(--border)', borderRadius:6, padding:'4px 9px'}}>
+            <Tag size={13} /> Tags {tags.length > 0 && <span style={{ background:cor, color:'white', borderRadius:99, width:16, height:16, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem', fontWeight:700 }}>{tags.length}</span>}
+          </button>
         </div>
 
         {/* Turma */}
@@ -166,9 +330,17 @@ function EditorFullscreen({ nota, turmas, onSave, onClose }) {
           {turmas.map(t => <option key={t.id} value={t.id}>{t.modulo} · {t.label}</option>)}
         </select>
 
-        <div style={{ marginLeft:'auto', display:'flex', gap:6, alignItems:'center' }}>
+        {/* Preview toggle */}
+        <button onClick={() => setPreview(p => !p)}
+          style={{...btnStyle(preview), fontSize:'0.78rem', border:'1px solid var(--border)', borderRadius:6, padding:'4px 10px', marginLeft:4}}>
+          {preview ? '✏️ Editar' : '👁 Preview'}
+        </button>
+
+        {/* Cores */}
+        <div style={{ marginLeft:'auto', display:'flex', gap:5, alignItems:'center' }}>
           {CORES_NOTA.map(c => (
-            <div key={c.bg} onClick={() => setCor(c.bg)} title={c.label} style={{ width:15, height:15, borderRadius:'50%', background:c.bg, cursor:'pointer', border: cor===c.bg ? '2px solid white' : '2px solid transparent', boxShadow: cor===c.bg ? `0 0 0 2px ${c.bg}` : 'none', transition:'all 0.12s' }} />
+            <div key={c.bg} onClick={() => setCor(c.bg)} title={c.label}
+              style={{ width:14, height:14, borderRadius:'50%', background:c.bg, cursor:'pointer', border: cor===c.bg ? '2px solid white' : '2px solid transparent', boxShadow: cor===c.bg ? `0 0 0 2px ${c.bg}` : 'none', transition:'all 0.12s' }} />
           ))}
           <span style={{ fontSize:'0.7rem', color: saved ? 'var(--green)' : 'var(--text3)', marginLeft:6 }}>
             {saved ? '✓ Salvo' : 'Autosalvando…'}
@@ -176,23 +348,90 @@ function EditorFullscreen({ nota, turmas, onSave, onClose }) {
         </div>
       </div>
 
-      {/* Editor */}
-      <div style={{ flex:1, overflowY:'auto', padding:'40px 32px', maxWidth:820, width:'100%', margin:'0 auto' }}>
+      {/* Tags selecionadas */}
+      <div style={{ padding:'6px 20px 0', display:'flex', gap:6, flexWrap:'wrap', alignItems:'center', background:`${cor}06` }}>
+        {TAGS_PADRAO.map(t => (
+          <button key={t.id} onClick={() => toggleTag(t.id)}
+            style={{ padding:'2px 10px', borderRadius:99, border:`1px solid ${tags.includes(t.id) ? t.cor : 'var(--border)'}`, background: tags.includes(t.id) ? t.cor+'18' : 'transparent', color: tags.includes(t.id) ? t.cor : 'var(--text3)', cursor:'pointer', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, transition:'all 0.12s' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Área de edição */}
+      <div style={{ flex:1, overflowY:'auto', padding:'32px', maxWidth:820, width:'100%', margin:'0 auto' }}>
         <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Título da anotação…"
-          style={{ background:'transparent', border:'none', outline:'none', color:'var(--text)', fontFamily:'var(--font-display)', fontSize:'1.75rem', fontWeight:700, lineHeight:1.25, width:'100%', marginBottom:16 }} />
-        {tags.length > 0 && (
-          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
-            {tags.map(t => <TagBadge key={t} tag={t} onRemove={() => toggleTag(t)} />)}
+          style={{ background:'transparent', border:'none', outline:'none', color:'var(--text)', fontFamily:'var(--font-display)', fontSize:'1.75rem', fontWeight:700, lineHeight:1.25, width:'100%', marginBottom:20 }} />
+
+        {preview ? (
+          <div style={{ minHeight:400 }}>
+            <RichContent text={conteudo} />
+          </div>
+        ) : (
+          <div style={{ position:'relative' }}>
+            <textarea
+              ref={taRef}
+              value={conteudo}
+              onChange={e => setConteudo(e.target.value)}
+              onKeyDown={e => {
+                // Enter em lista continua lista
+                if (e.key === 'Enter') {
+                  const ta = taRef.current;
+                  const s = ta.selectionStart;
+                  const lineStart = conteudo.lastIndexOf('\n', s - 1) + 1;
+                  const line = conteudo.slice(lineStart, s);
+                  const listMatch = line.match(/^([-*]|\d+\.)\s/);
+                  if (listMatch) {
+                    e.preventDefault();
+                    // Se linha está vazia (só o marcador), sai da lista
+                    if (line.trim() === listMatch[0].trim()) {
+                      const next = conteudo.slice(0, lineStart) + '\n' + conteudo.slice(s);
+                      setConteudo(next);
+                    } else {
+                      const prefix = listMatch[0].match(/^\d/) ? `${parseInt(listMatch[0])+1}. ` : listMatch[0];
+                      const next = conteudo.slice(0, s) + '\n' + prefix + conteudo.slice(s);
+                      setConteudo(next);
+                      setTimeout(() => ta.setSelectionRange(s + 1 + prefix.length, s + 1 + prefix.length), 0);
+                    }
+                  }
+                }
+                // Tab insere espaços
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  const ta = taRef.current;
+                  const s = ta.selectionStart;
+                  const next = conteudo.slice(0, s) + '  ' + conteudo.slice(s);
+                  setConteudo(next);
+                  setTimeout(() => ta.setSelectionRange(s+2, s+2), 0);
+                }
+              }}
+              placeholder={`Escreva aqui… Dicas rápidas:\n- **negrito**, _itálico_\n- Liste com "- item"\n- Títulos com "# Título"\n- Avisos com o botão ⚠️ Aviso\n- Separador com "---"`}
+              style={{
+                background:'transparent', border:'none', outline:'none',
+                color:'var(--text2)', fontFamily:'var(--font-mono, monospace)',
+                fontSize:'0.95rem', lineHeight:1.8, width:'100%',
+                resize:'none', minHeight:500,
+                caretColor:'var(--accent)',
+              }}
+              rows={Math.max(20, conteudo.split('\n').length + 5)}
+            />
           </div>
         )}
-        <textarea ref={taRef} value={conteudo} onChange={e => setConteudo(e.target.value)}
-          placeholder="Escreva aqui… Suporte a links [texto](url) e imagens ![](url)"
-          style={{ background:'transparent', border:'none', outline:'none', color:'var(--text2)', fontFamily:'var(--font-body)', fontSize:'1rem', lineHeight:1.8, width:'100%', resize:'none', overflow:'hidden', minHeight:400 }} />
       </div>
+
+      {/* Rodapé — dicas */}
+      {!preview && (
+        <div style={{ padding:'6px 32px', borderTop:'1px solid var(--border)', display:'flex', gap:16, flexWrap:'wrap' }}>
+          {['**negrito**', '_itálico_', '# Título', '- lista', '1. numerada', '> citação', '---'].map(d => (
+            <span key={d} style={{ fontSize:'0.68rem', color:'var(--text3)', fontFamily:'monospace' }}>{d}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
+// ── Componente principal ───────────────────────────────────────────
 export function Anotacoes({ onBack }) {
   const { turmas } = useOrg();
   const [notas,         setNotas]         = useState([]);
@@ -229,9 +468,7 @@ export function Anotacoes({ onBack }) {
     if (data) setNotas(n => n.map(x => x.id===nota.id ? data : x));
   };
 
-  const deletar = async (id) => {
-    setConfirmDel(id);
-  };
+  const deletar = (id) => setConfirmDel(id);
 
   const confirmarDeletar = async () => {
     await supabase.from('anotacoes').delete().eq('id', confirmDel);
@@ -266,7 +503,9 @@ export function Anotacoes({ onBack }) {
   if (loading) return <div style={{ color:'var(--text3)', padding:32 }}>Carregando...</div>;
 
   if (editando) {
-    return <EditorFullscreen nota={editando} turmas={turmas} onSave={async (nota) => { await salvar(nota); setEditando(p => ({...p,...nota})); }} onClose={() => { setEditando(null); if (onBack) onBack(); }} />;
+    return <EditorFullscreen nota={editando} turmas={turmas}
+      onSave={async (nota) => { await salvar(nota); setEditando(p => ({...p,...nota})); }}
+      onClose={() => { setEditando(null); if (onBack) onBack(); }} />;
   }
 
   return (
@@ -342,6 +581,6 @@ export function Anotacoes({ onBack }) {
         onCancel={() => setConfirmDel(null)}
       />
     )}
-  </>
+    </>
   );
 }

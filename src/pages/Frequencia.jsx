@@ -1,7 +1,8 @@
 // Frequencia.jsx — arquivo completo corrigido
 import { EmptyState } from '../components/EmptyState.jsx';
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { useOrg } from '../store/OrgContext.jsx';
 import { TURMAS, ALUNO_CORES } from '../data/turmas.js';
 import { TURMA_IDS } from '../data/ids.js';
 import { SquaresFour, ListBullets, CheckCircle, XCircle, Trash } from '@phosphor-icons/react';
@@ -54,7 +55,128 @@ const todayISO = () => {
 // ✅ FIX: chave usa aula.id (UUID) — igual ao que o banco retorna
 const presKey = (alunoId, aulaId) => `${alunoId}_${aulaId}`;
 
+
+// ── Tabela com colunas redimensionáveis ──────────────────────────
+function ResizableTable({ alunos, onEdit, onDelete }) {
+  const [colWidths, setColWidths] = useState({ num: 48, nome: 260, matricula: 120, acoes: 76 });
+  const dragging = useRef(null);
+
+  const startResize = (col, e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = colWidths[col];
+    dragging.current = { col, startX, startW };
+
+    const onMove = (ev) => {
+      if (!dragging.current) return;
+      const delta = ev.clientX - dragging.current.startX;
+      const newW  = Math.max(40, dragging.current.startW + delta);
+      setColWidths(prev => ({ ...prev, [dragging.current.col]: newW }));
+    };
+    const onUp = () => {
+      dragging.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const thStyle = (w) => ({
+    width: w, minWidth: w, maxWidth: w,
+    padding: '8px 10px', background: 'var(--surface2)',
+    borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)',
+    fontSize: '0.65rem', fontWeight: 700, color: 'var(--text3)',
+    textTransform: 'uppercase', letterSpacing: '0.07em',
+    position: 'relative', userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden',
+  });
+
+  const tdStyle = (w, center) => ({
+    width: w, minWidth: w, maxWidth: w,
+    padding: '9px 10px',
+    borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)',
+    overflow: 'hidden', textAlign: center ? 'center' : 'left',
+    background: 'var(--surface)',
+  });
+
+  const resizerStyle = {
+    position: 'absolute', right: 0, top: 0, bottom: 0,
+    width: 5, cursor: 'col-resize',
+    background: 'transparent',
+    transition: 'background 0.15s',
+  };
+
+  return (
+    <div style={{ borderRadius: 'var(--r-md)', border: '1px solid var(--border)', overflow: 'auto', marginBottom: 20 }}>
+      <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: colWidths.num + colWidths.nome + colWidths.matricula + colWidths.acoes }}>
+        <thead>
+          <tr>
+            {/* # */}
+            <th style={{ ...thStyle(colWidths.num), textAlign: 'center' }}>
+              #
+              <div style={resizerStyle} onMouseDown={e => startResize('num', e)}
+                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} onMouseLeave={e => e.currentTarget.style.background='transparent'} />
+            </th>
+            {/* Nome */}
+            <th style={thStyle(colWidths.nome)}>
+              Aluno
+              <div style={resizerStyle} onMouseDown={e => startResize('nome', e)}
+                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} onMouseLeave={e => e.currentTarget.style.background='transparent'} />
+            </th>
+            {/* Matrícula */}
+            <th style={{ ...thStyle(colWidths.matricula), textAlign: 'center' }}>
+              Matrícula
+              <div style={resizerStyle} onMouseDown={e => startResize('matricula', e)}
+                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} onMouseLeave={e => e.currentTarget.style.background='transparent'} />
+            </th>
+            {/* Ações */}
+            <th style={{ ...thStyle(colWidths.acoes), textAlign: 'center', borderRight: 'none' }}>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {alunos.map((a, i) => {
+            const cor = ALUNO_CORES[i % ALUNO_CORES.length];
+            return (
+              <tr key={a.id} style={{ background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)' }}
+                onMouseEnter={e => e.currentTarget.style.background='var(--accent-faint)'}
+                onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)'}>
+                {/* # */}
+                <td style={{ ...tdStyle(colWidths.num, true), borderBottom: i === alunos.length-1 ? 'none' : '1px solid var(--border)' }}>
+                  <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:24, height:24, borderRadius:5, background:'var(--surface2)', fontSize:'0.7rem', fontWeight:700, color:'var(--text3)' }}>
+                    {i + 1}
+                  </span>
+                </td>
+                {/* Nome */}
+                <td style={{ ...tdStyle(colWidths.nome), borderBottom: i === alunos.length-1 ? 'none' : '1px solid var(--border)' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                    <div className="aluno-avatar" style={{ background:cor.bg, color:cor.text, width:26, height:26, fontSize:'0.68rem', flexShrink:0 }}>
+                      {initials(a.nome)}
+                    </div>
+                    <span style={{ fontWeight:500, fontSize:'0.88rem', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.nome}</span>
+                  </div>
+                </td>
+                {/* Matrícula */}
+                <td style={{ ...tdStyle(colWidths.matricula, true), borderBottom: i === alunos.length-1 ? 'none' : '1px solid var(--border)', fontSize:'0.82rem', color: a.matricula ? 'var(--text2)' : 'var(--border)' }}>
+                  {a.matricula || '—'}
+                </td>
+                {/* Ações */}
+                <td style={{ ...tdStyle(colWidths.acoes, true), borderRight:'none', borderBottom: i === alunos.length-1 ? 'none' : '1px solid var(--border)' }}>
+                  <div style={{ display:'flex', gap:3, justifyContent:'center' }}>
+                    <button className="icon-btn-sm" onClick={() => onEdit(i, a)}>✏️</button>
+                    <button className="icon-btn-sm danger" onClick={() => onDelete(i)} style={{display:'flex',alignItems:'center',justifyContent:'center'}}><Trash size={12} /></button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function Frequencia({ activeTurma, turmaKey }) {
+  const { org } = useOrg();
   const turma   = TURMAS[turmaKey] || TURMAS[activeTurma];
   const turmaId = activeTurma || TURMA_IDS[turmaKey];
 
@@ -128,6 +250,8 @@ export function Frequencia({ activeTurma, turmaKey }) {
       if (error) throw error;
       const inseridos = (data || []).map(r => ({ id: r.id, nome: r.nome, matricula: r.matricula || '' }));
       await persist({ ...turmaData, alunos: [...turmaData.alunos, ...inseridos] });
+      // Sincroniza para tabela global
+      inseridos.forEach(a => sincronizarParaGlobal(a.nome, a.matricula).catch(console.error));
       setSyncMsg(`✓ ${inseridos.length} aluno${inseridos.length > 1 ? 's' : ''} adicionado${inseridos.length > 1 ? 's' : ''} da lista global.`);
     } catch(e) {
       setSyncMsg('Erro ao sincronizar: ' + (e.message || 'verifique sua conexão'));
@@ -155,6 +279,30 @@ export function Frequencia({ activeTurma, turmaKey }) {
   const [alunoErro,   setAlunoErro]   = useState('');
   const [alunoSaving, setAlunoSaving] = useState(false);
 
+  // Sincroniza aluno para a tabela global de alunos (usada pela aba Alunos)
+  const sincronizarParaGlobal = async (nome, matricula) => {
+    if (!org?.id) return;
+    // Verifica se já existe pelo nome+org
+    const { data: existente } = await supabase.from('alunos')
+      .select('id').eq('organizacao_id', org.id).ilike('nome', nome.trim()).maybeSingle();
+    if (existente) return; // já existe, não duplica
+    // Cria na tabela global
+    await supabase.from('alunos').insert({
+      organizacao_id: org.id,
+      nome: nome.trim(),
+      matricula: matricula?.trim() || null,
+    });
+    // Matricula na turma automaticamente
+    const { data: globalAluno } = await supabase.from('alunos')
+      .select('id').eq('organizacao_id', org.id).ilike('nome', nome.trim()).maybeSingle();
+    if (globalAluno && turmaId) {
+      await supabase.from('matriculas').upsert(
+        { aluno_id: globalAluno.id, turma_id: turmaId },
+        { onConflict: 'aluno_id,turma_id', ignoreDuplicates: true }
+      );
+    }
+  };
+
   const adicionarAluno = async () => {
     if (!formAluno.nome.trim()) return;
     setAlunoSaving(true); setAlunoErro('');
@@ -166,6 +314,8 @@ export function Frequencia({ activeTurma, turmaKey }) {
       if (data) {
         const aluno = { id: data.id, nome: data.nome, matricula: data.matricula || '' };
         await persist({ ...turmaData, alunos: [...turmaData.alunos, aluno] });
+        // Sincroniza para tabela global de alunos (aba Alunos)
+        sincronizarParaGlobal(data.nome, data.matricula).catch(console.error);
         setFormAluno({ nome: '', matricula: '' });
         setShowAddAluno(false);
       }
@@ -343,39 +493,8 @@ export function Frequencia({ activeTurma, turmaKey }) {
       ) : aulas.length === 0 ? (
         <div>
           <div className="section-label">Alunos cadastrados</div>
-          {/* Cabeçalho da lista */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
-            <div style={{ minWidth: 20 }} />
-            <div style={{ width: 32 }} />
-            <div style={{ flex: 1, fontSize: '0.68rem', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nome</div>
-            <div style={{ minWidth: 90, textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Matrícula</div>
-            <div style={{ width: 44 }} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-            {alunos.map((a, i) => {
-              const cor = ALUNO_CORES[i % ALUNO_CORES.length];
-              return (
-                <div key={a.id} style={{
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--r-md)', padding: '12px 16px',
-                  display: 'flex', alignItems: 'center', gap: 12,
-                }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text3)', minWidth: 20, textAlign: 'right', flexShrink: 0 }}>#{i + 1}</div>
-                  <div className="aluno-avatar" style={{ background: cor.bg, color: cor.text }}>
-                    {initials(a.nome)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 500 }}>{a.nome}</div>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text3)', minWidth: 90, textAlign: 'right', flexShrink: 0 }}>
-                    {a.matricula || <span style={{ color: 'var(--border)' }}>—</span>}
-                  </div>
-                  <button className="icon-btn-sm" onClick={() => { setEditAluno(i); setFormAluno({ nome: a.nome, matricula: a.matricula || '' }); }}>✏️</button>
-                  <button className="icon-btn-sm danger" onClick={() => excluirAluno(i)} style={{display:"flex",alignItems:"center",justifyContent:"center"}}><Trash size={13} /></button>
-                </div>
-              );
-            })}
-          </div>
+          {/* Tabela de alunos com colunas redimensionáveis */}
+          <ResizableTable alunos={alunos} onEdit={(i,a) => { setEditAluno(i); setFormAluno({ nome: a.nome, matricula: a.matricula || '' }); }} onDelete={excluirAluno} />
           <div style={{ color: 'var(--text3)', fontSize: '0.875rem' }}>
             Clique em "+ Registrar aula" para começar o controle de frequência.
           </div>
