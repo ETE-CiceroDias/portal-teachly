@@ -235,13 +235,13 @@ export function Frequencia({ activeTurma, turmaKey }) {
   const togglePresenca = async (alunoId, aulaId) => {
     const k = presKey(alunoId, aulaId);
     const presente = !turmaData.presencas[k];
-    await supabase.from('presencas').upsert({
-      aula_frequencia_id: aulaId,
-      aluno_local_id: alunoId,
-      presente,
-    });
+    const { error } = await supabase.from('presencas').upsert(
+      { aula_frequencia_id: aulaId, aluno_local_id: alunoId, presente },
+      { onConflict: 'aula_frequencia_id,aluno_local_id' }
+    );
+    if (error) { console.error('Erro ao salvar presença:', error); return; }
     const presencas = { ...turmaData.presencas, [k]: presente };
-    await persist({ ...turmaData, presencas });
+    setTurmaData(prev => ({ ...prev, presencas }));
   };
 
   const isPresente = (alunoId, aulaId) => !!turmaData.presencas[presKey(alunoId, aulaId)];
@@ -266,10 +266,13 @@ export function Frequencia({ activeTurma, turmaKey }) {
     const upserts = turmaData.alunos.map(a => ({
       aula_frequencia_id: aula.id, aluno_local_id: a.id, presente: valor,
     }));
-    if (upserts.length > 0) await supabase.from('presencas').upsert(upserts);
+    if (upserts.length > 0) {
+      const { error } = await supabase.from('presencas').upsert(upserts, { onConflict: 'aula_frequencia_id,aluno_local_id' });
+      if (error) { console.error('Erro ao salvar presenças em massa:', error); return; }
+    }
     const presencas = { ...turmaData.presencas };
     turmaData.alunos.forEach(a => { presencas[presKey(a.id, aula.id)] = valor; });
-    await persist({ ...turmaData, presencas });
+    setTurmaData(prev => ({ ...prev, presencas }));
   };
 
   const aulas  = turmaData.aulas;
@@ -349,6 +352,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
                   borderRadius: 'var(--r-md)', padding: '12px 16px',
                   display: 'flex', alignItems: 'center', gap: 12,
                 }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text3)', minWidth: 20, textAlign: 'right', flexShrink: 0 }}>#{i + 1}</div>
                   <div className="aluno-avatar" style={{ background: cor.bg, color: cor.text }}>
                     {initials(a.nome)}
                   </div>
@@ -420,6 +424,7 @@ export function Frequencia({ activeTurma, turmaKey }) {
                       <tr key={a.id}>
                         <td style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text3)', minWidth: 18, textAlign: 'right', flexShrink: 0 }}>#{ri + 1}</div>
                             <div className="aluno-avatar" style={{ background: cor.bg, color: cor.text, width: 26, height: 26, fontSize: '0.7rem' }}>
                               {initials(a.nome)}
                             </div>
