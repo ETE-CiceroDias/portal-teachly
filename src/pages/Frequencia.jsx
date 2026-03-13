@@ -76,12 +76,12 @@ export function Frequencia({ activeTurma, turmaKey }) {
           .from('presencas').select('*').in('aula_frequencia_id', aulaIds);
         // ✅ FIX: chave agora é aluno_local_id + aula_frequencia_id (ambos UUIDs)
         (presRows || []).forEach(p => {
-          presencas[presKey(p.aluno_local_id, p.aula_frequencia_id)] = p.presente;
+          presencas[presKey(p.aluno_local_id || p.aluno_id, p.aula_frequencia_id)] = p.presente;
         });
       }
 
       const { data: alunosRows } = await supabase
-        .from('alunos_frequencia').select('*').eq('turma_id', turmaId).order('criado_em');
+        .from('alunos_frequencia').select('*').eq('turma_id', turmaId).order('nome');
 
       const alunos = (alunosRows || []).map(r => ({ id: r.id, nome: r.nome, matricula: r.matricula || '' }));
 
@@ -343,6 +343,14 @@ export function Frequencia({ activeTurma, turmaKey }) {
       ) : aulas.length === 0 ? (
         <div>
           <div className="section-label">Alunos cadastrados</div>
+          {/* Cabeçalho da lista */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px 6px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
+            <div style={{ minWidth: 20 }} />
+            <div style={{ width: 32 }} />
+            <div style={{ flex: 1, fontSize: '0.68rem', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nome</div>
+            <div style={{ minWidth: 90, textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Matrícula</div>
+            <div style={{ width: 44 }} />
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
             {alunos.map((a, i) => {
               const cor = ALUNO_CORES[i % ALUNO_CORES.length];
@@ -356,9 +364,11 @@ export function Frequencia({ activeTurma, turmaKey }) {
                   <div className="aluno-avatar" style={{ background: cor.bg, color: cor.text }}>
                     {initials(a.nome)}
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 500 }}>{a.nome}</div>
-                    {a.matricula && <div style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>Matrícula: {a.matricula}</div>}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text3)', minWidth: 90, textAlign: 'right', flexShrink: 0 }}>
+                    {a.matricula || <span style={{ color: 'var(--border)' }}>—</span>}
                   </div>
                   <button className="icon-btn-sm" onClick={() => { setEditAluno(i); setFormAluno({ nome: a.nome, matricula: a.matricula || '' }); }}>✏️</button>
                   <button className="icon-btn-sm danger" onClick={() => excluirAluno(i)} style={{display:"flex",alignItems:"center",justifyContent:"center"}}><Trash size={13} /></button>
