@@ -59,16 +59,23 @@ export function OrgProvider({ user, children }) {
       ano:         t.ano || '',
       hasDesafio:  t.has_desafio ?? false,
       dotClass:    t.dot_class || '',
-      disciplinas: (t.disciplinas || []).map(d => ({
-        id:       d.id,
-        key:      d.key || d.id,
-        label:    d.nome,
-        fullname: d.nome,
-        code:     d.codigo || '',
-        cor:      d.cor_destaque || '#7c3aed',
-        ativa:    d.ativa !== false,
-        blocos:   d.blocos?.length ? d.blocos : (COURSES[d.key]?.blocos || []),
-      })),
+      disciplinas: (t.disciplinas || []).map(d => {
+          const found = Object.values(COURSES).find(cc =>
+            (d.codigo && cc.code === d.codigo) ||
+            (d.nome && cc.fullname?.toLowerCase() === d.nome?.toLowerCase())
+          );
+          const discKey = (d.key && COURSES[d.key]) ? d.key : (found?.key || d.key || d.id);
+          return {
+            id:       d.id,
+            key:      discKey,
+            label:    d.nome,
+            fullname: d.nome,
+            code:     d.codigo || '',
+            cor:      d.cor_destaque || '#7c3aed',
+            ativa:    d.ativa !== false,
+            blocos:   d.blocos?.length ? d.blocos : (COURSES[discKey]?.blocos || []),
+          };
+        }),
     }));
 
     setTurmas(normalized);

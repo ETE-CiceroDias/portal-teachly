@@ -9,7 +9,7 @@ import {
   SquaresFour, Users, ClipboardText, CalendarBlank,
   Clock, Link, NotePencil, NoteBlank, Trophy,
   GearSix, SignOut, Sun, Moon, Student,
-  CaretDown, CaretRight, Sparkle, Books, UsersThree,
+  CaretDown, CaretRight, Sparkle, Books, UsersThree, FolderOpen,
 } from '@phosphor-icons/react';
 
 const IC = { size: 17, weight: 'regular' };
@@ -26,8 +26,9 @@ const NAV_GERAL = [
 ];
 
 const NAV_TURMA = [
-  { tab:'grupos', Icon: UsersThree, label:'Grupos' },
-  { tab:'frequencia', Icon: ClipboardText, label:'Frequência' },
+  { tab:'grupos',     Icon: UsersThree,   label:'Grupos'      },
+  { tab:'frequencia', Icon: ClipboardText,label:'Frequência'  },
+  { tab:'projetos',   Icon: FolderOpen,   label:'Projetos'    },
 ];
 
 export function Sidebar({ activeTab, onTabChange, activeTurmaId, onTurmaChange, onLogout, state, theme, onToggleTheme, open, onClose, collapsed, onToggleCollapse }) {

@@ -467,32 +467,23 @@ export const EstadoAulas = {
     );
     const ts = new Date().toISOString();
 
-    // Tenta UPDATE primeiro
-    const { data: upd, error: errUp } = await supabase
-      .from('estado_aulas')
-      .update({ atualizado_em: ts, ...safe })
-      .eq('professor_id', user.id)
-      .eq('turma_id',     turmaId)
-      .eq('state_key',    stateKey)
-      .select('id');
-    if (errUp) { console.error('EstadoAulas.update error:', errUp); throw errUp; }
+    // stateKey ex: 'dcu_mod1a_AULA_01' → discKey='dcu', aulaId='dcu_mod1a_AULA_01'
+    const discKey = stateKey.split('_')[0] || '';
 
-    // Se não existia, insere
-    if (!upd || upd.length === 0) {
-      const discKey = stateKey.split('_')[0] || '';
-      const { error: errIns } = await supabase
-        .from('estado_aulas')
-        .insert({
-          professor_id:   user.id,
-          turma_id:       turmaId,
-          state_key:      stateKey,
-          disciplina_key: discKey,
-          aula_id:        stateKey,
-          atualizado_em:  ts,
-          ...safe,
-        });
-      if (errIns) { console.error('EstadoAulas.insert error:', errIns); throw errIns; }
-    }
+    // Upsert usando as colunas reais da tabela (UNIQUE: professor_id, turma_id, disciplina_key, aula_id)
+    const { error } = await supabase
+      .from('estado_aulas')
+      .upsert({
+        professor_id:   user.id,
+        turma_id:       turmaId,
+        disciplina_key: discKey,
+        aula_id:        stateKey,   // usa stateKey completo como aula_id (único por turma+disc)
+        atualizado_em:  ts,
+        ...safe,
+      }, {
+        onConflict: 'professor_id,turma_id,disciplina_key,aula_id',
+      });
+    if (error) { console.error('EstadoAulas.save error:', error); throw error; }
   },
 };
 
@@ -532,6 +523,10 @@ export function getOrderedBlocos(courseKey, turmaKey, allCourses, state) {
   return course.blocos.map((bloco, bi) => {
     const order = state[`${courseKey}_${turmaKey}_order_b${bi}`];
     if (!order) return bloco;
-    return { ...bloco, aulas: order.map(i => bloco.aulas[i]).filter(Boolean) };
+    // Aplica a ordem salva, e appenda aulas novas que não estão na ordem
+    const ordenadas = order.map(i => bloco.aulas[i]).filter(Boolean);
+    const indicesNaOrdem = new Set(order);
+    const novas = bloco.aulas.filter((_, i) => !indicesNaOrdem.has(i));
+    return { ...bloco, aulas: [...ordenadas, ...novas] };
   });
 }

@@ -41,9 +41,10 @@ function NotaRow({ aula, onEdit, onDelete }) {
 
 // ── Card de Aula ─────────────────────────────────────────────
 function AulaCard({
-  courseKey, turmaKey, aula, aulaIdx, state,
+  courseKey, turmaKey, aula, aulaIdx, posicao, state,
   onToggle, onSave, onDragStart, onDrop,
   onDeleteAula, onEditAula,
+  isDragging, isOver,
 }) {
   const [open, setOpen]               = useState(false);
   const [confirmDel, setConfirmDel]   = useState(false);
@@ -58,7 +59,8 @@ function AulaCard({
   const lines    = aula.titulo.split('\n');
   const title    = lines[0];
   const subLine  = lines.slice(1).join(' ').trim();
-  const numLabel = aula.id.replace('AULA ', '').replace('NOTA', '').trim();
+  // Usa posição real passada pelo pai, não o ID da aula
+  const numLabel = posicao != null ? String(posicao).padStart(2, '0') : aula.id.replace('AULA ', '').trim();
 
   const pillCls   = hasProb ? 'pill-problem' : isDone ? 'pill-done' : aula.isEval ? 'pill-eval' : 'pill-pend';
   const pillLabel = hasProb ? 'Problema'     : isDone ? 'Feita'     : aula.isEval ? 'Avaliação' : 'Pendente';
@@ -67,7 +69,6 @@ function AulaCard({
     e.stopPropagation();
     setDraft(aula.titulo);
     setEditingTitle(true);
-    // Se estava fechado, abre para ver a edição
     setOpen(true);
   };
 
@@ -77,14 +78,30 @@ function AulaCard({
   };
 
   return (
-    <div className={"aula" + (isDone ? ' done' : '')}
-      draggable onDragStart={() => onDragStart(aulaIdx)}
-      onDragOver={e => e.preventDefault()} onDrop={() => onDrop(aulaIdx)}
+    <div
+      className={"aula" + (isDone ? ' done' : '')}
+      data-aula-idx={aulaIdx}
+      style={{
+        opacity: isDragging ? 0.35 : 1,
+        outline: isOver ? '2px solid var(--accent)' : 'none',
+        outlineOffset: '-2px',
+        transition: 'opacity 0.12s',
+      }}
     >
       <div className="aula-row"
         onClick={() => !editingTitle && setOpen(o => !o)}
       >
-        <span className="drag-handle" onClick={e => e.stopPropagation()} title="Arrastar">⠿</span>
+        {/* Handle de drag — só aqui inicia o drag */}
+        <span
+          className="drag-handle"
+          title="Arrastar para reordenar"
+          onClick={e => e.stopPropagation()}
+          onPointerDown={e => {
+            e.stopPropagation();
+            onDragStart(aulaIdx);
+          }}
+          style={{ touchAction: 'none', cursor: 'grab' }}
+        >⠿</span>
         <input type="checkbox" className="aula-check" checked={isDone}
           onClick={e => e.stopPropagation()} onChange={() => onToggle(id)} />
         <span className="aula-num">{numLabel}</span>
@@ -177,7 +194,44 @@ export function Bloco({ bloco, blocoIdx, courseKey, turmaKey, state,
   const [draftName, setDraftName] = useState('');
   const [draftSub,  setDraftSub]  = useState('');
 
-  const dragSrc = useRef(null);
+  const [dragState, setDragState] = useState(null); // { fromIdx, overIdx }
+  const dragRef = useRef(null);
+
+  const iniciarDragAula = (fromIdx) => {
+    dragRef.current = fromIdx;
+    setDragState({ fromIdx, overIdx: fromIdx });
+
+    const onMove = (ev) => {
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      const aulaEl = target?.closest('[data-aula-idx]');
+      if (aulaEl) {
+        const idx = parseInt(aulaEl.dataset.aulaIdx, 10);
+        if (!isNaN(idx)) setDragState(s => s ? { ...s, overIdx: idx } : null);
+      }
+    };
+
+    const onUp = (ev) => {
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      const aulaEl = target?.closest('[data-aula-idx]');
+      if (aulaEl && dragRef.current !== null) {
+        const toIdx = parseInt(aulaEl.dataset.aulaIdx, 10);
+        if (!isNaN(toIdx) && toIdx !== dragRef.current) {
+          // Reordena e renumera diretamente no bloco
+          const novas = [...bloco.aulas];
+          const [moved] = novas.splice(dragRef.current, 1);
+          novas.splice(toIdx, 0, moved);
+          onUpdateBloco({ ...bloco, aulas: renumerar(novas) });
+        }
+      }
+      dragRef.current = null;
+      setDragState(null);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
 
   // Parseia título do bloco
   const lines   = bloco.titulo.split('\n');
@@ -198,16 +252,34 @@ export function Bloco({ bloco, blocoIdx, courseKey, turmaKey, state,
     onUpdateBloco({ ...bloco, titulo: newTitulo });
   };
 
+  // Renumera todas as aulas reais em ordem sequencial
+  const renumerar = (aulas) => {
+    let n = 0;
+    return aulas.map(a => {
+      if (a.id === 'NOTA') return a;
+      n++;
+      const num = String(n).padStart(2, '0');
+      // Atualiza id e primeira linha do título se contiver número antigo
+      const linhas = a.titulo.split('\n');
+      const tituloNovo = linhas[0].replace(/^Aula \d+/i, `Aula ${num}`);
+      return { ...a, id: `AULA ${num}`, titulo: [tituloNovo, ...linhas.slice(1)].join('\n') };
+    });
+  };
+
   const handleEditAula   = (ai, upd) => onUpdateBloco({ ...bloco, aulas: bloco.aulas.map((a,i) => i===ai ? upd : a) });
-  const handleDeleteAula = (ai)       => onUpdateBloco({ ...bloco, aulas: bloco.aulas.filter((_,i) => i!==ai) });
+  const handleDeleteAula = (ai) => {
+    const novas = renumerar(bloco.aulas.filter((_,i) => i !== ai));
+    onUpdateBloco({ ...bloco, aulas: novas });
+  };
 
   const handleAddAula = () => {
     const n   = realAulas.length + 1;
     const num = String(n).padStart(2, '0');
-    onUpdateBloco({ ...bloco, aulas: [...bloco.aulas, { id:`AULA ${num}`, titulo:`Aula ${num}\nSubtítulo` }] });
+    onUpdateBloco({ ...bloco, aulas: [...bloco.aulas, { id: `AULA ${num}`, titulo: `Aula ${num}\nSubtítulo` }] });
   };
+
   const handleAddNota = () => {
-    onUpdateBloco({ ...bloco, aulas: [...bloco.aulas, { id:'NOTA', titulo:'📌 Nota' }] });
+    onUpdateBloco({ ...bloco, aulas: [...bloco.aulas, { id: 'NOTA', titulo: '📌 Nota' }] });
   };
 
   return (
@@ -299,26 +371,26 @@ export function Bloco({ bloco, blocoIdx, courseKey, turmaKey, state,
         <div className="lesson-list">
           {bloco.foco && <div className="foco-strip">{bloco.foco}</div>}
 
-          {bloco.aulas.map((aula, ai) => (
-            aula.id === 'NOTA'
+          {bloco.aulas.map((aula, ai) => {
+            // Posição real entre aulas não-NOTA
+            const posReal = bloco.aulas.slice(0, ai + 1).filter(a => a.id !== 'NOTA').length;
+            return aula.id === 'NOTA'
               ? <NotaRow key={ai} aula={aula}
                   onEdit={upd => handleEditAula(ai, upd)}
                   onDelete={() => handleDeleteAula(ai)} />
               : <AulaCard
-                  key={courseKey + '-' + turmaKey + '-' + blocoIdx + '-' + ai}
+                  key={courseKey + '-' + turmaKey + '-' + blocoIdx + '-' + aula.id}
                   courseKey={courseKey} turmaKey={turmaKey}
-                  aula={aula} aulaIdx={ai} state={state}
+                  aula={aula} aulaIdx={ai} posicao={posReal} state={state}
                   onToggle={onToggle} onSave={onSave}
-                  onDragStart={i => { dragSrc.current = i; }}
-                  onDrop={toIdx => {
-                    if (dragSrc.current === null || dragSrc.current === toIdx) return;
-                    onReorder(blocoIdx, dragSrc.current, toIdx);
-                    dragSrc.current = null;
-                  }}
+                  isDragging={dragState?.fromIdx === ai}
+                  isOver={dragState?.overIdx === ai && dragState?.fromIdx !== ai}
+                  onDragStart={iniciarDragAula}
+                  onDrop={() => {}}
                   onEditAula={upd => handleEditAula(ai, upd)}
                   onDeleteAula={() => handleDeleteAula(ai)}
-                />
-          ))}
+                />;
+          })}
 
           {/* Botões add — SEMPRE visíveis */}
           <div style={{ display:'flex', gap:8, padding:'10px 16px', borderTop:'1px dashed rgba(255,255,255,0.06)' }}>

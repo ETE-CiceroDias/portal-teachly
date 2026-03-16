@@ -40,10 +40,23 @@ export function Dashboard({ state, onNavigate }) {
   const [filtroTurma, setFiltroTurma] = useState('todas');
   // Aulas planejadas do banco
   const [planejadas, setPlanejadas] = useState([]);
+  const [projetosDash, setProjetosDash] = useState([]);
 
   useEffect(() => {
     supabase.from('aulas_planejadas').select('*').then(({ data }) => setPlanejadas(data || []));
   }, []);
+
+  useEffect(() => {
+    if (!turmas || turmas.length === 0) return;
+    const ids = turmas.map(t => t.id);
+    supabase
+      .from('projetos')
+      .select('id, nome, status, data_termino, turma_id')
+      .in('turma_id', ids)
+      .eq('visivel', true)
+      .order('data_termino', { ascending: true })
+      .then(({ data }) => setProjetosDash(data || []));
+  }, [turmas]);
 
   // Turmas a mostrar
   const turmasFiltradas = filtroTurma === 'todas'
@@ -220,6 +233,61 @@ export function Dashboard({ state, onNavigate }) {
           )}
         </div>
       )}
+
+      {/* Bloco de Projetos */}
+      {projetosDash.length > 0 && (() => {
+        const hoje = new Date(); hoje.setHours(0,0,0,0);
+        const emProgresso = projetosDash.filter(p => p.status === 'em_progresso');
+        const proximos = projetosDash
+          .filter(p => p.data_termino && p.status !== 'concluído')
+          .sort((a, b) => a.data_termino.localeCompare(b.data_termino))
+          .slice(0, 4);
+        const concluidos = projetosDash.filter(p => p.status === 'concluído').length;
+        return (
+          <div style={{ marginBottom: 28 }}>
+            <div className="section-label">Projetos</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 12 }}>
+              {[
+                { label: 'Total',         val: projetosDash.length,  c: 'var(--text2)' },
+                { label: 'Em andamento',  val: emProgresso.length,   c: 'var(--amber)' },
+                { label: 'Concluídos',    val: concluidos,           c: 'var(--green)' },
+              ].map(s => (
+                <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text3)', marginBottom: 3 }}>{s.label}</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 700, color: s.c }}>{s.val}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {proximos.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {proximos.map(p => {
+                  const dias = p.data_termino
+                    ? Math.round((new Date(p.data_termino + 'T00:00:00') - hoje) / 86400000)
+                    : null;
+                  const statusCor = p.status === 'em_progresso' ? 'var(--amber)' : p.status === 'concluído' ? 'var(--green)' : 'var(--text3)';
+                  const turma = turmas.find(t => t.id === p.turma_id);
+                  return (
+                    <div key={p.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusCor, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.8375rem', fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nome}</div>
+                        {turma && <div style={{ fontSize: '0.68rem', color: 'var(--text3)', marginTop: 1 }}>{turma.modulo} · {turma.label}</div>}
+                      </div>
+                      {dias !== null && (
+                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: dias <= 3 ? 'var(--red)' : dias <= 7 ? 'var(--amber)' : 'var(--text3)', flexShrink: 0 }}>
+                          {dias < 0 ? `${Math.abs(dias)}d atrasado` : dias === 0 ? 'Hoje' : `${dias}d`}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Cards de disciplinas */}
       <div className="section-label">Disciplinas</div>

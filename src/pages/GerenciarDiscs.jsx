@@ -1,5 +1,5 @@
 // pages/GerenciarDiscs.jsx — Disciplinas + Turmas
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
@@ -58,13 +58,77 @@ export function GerenciarDiscs() {
   const catalogoSugestoes = getCatalogoByCurso(cursoProfessor);
 
   // ── Estado de modals ───────────────────────────────────────
-  const [modal,     setModal]    = useState(null); // null | 'novaDisc' | 'novaTurma' | {disc} | {turma, tipo:'turma'}
+  const [modal,     setModal]    = useState(null);
   const [turmaId,   setTurmaId]  = useState(turmas[0]?.id || '');
   const [formDisc,  setFormDisc] = useState({ nome:'', codigo:'', cor:'#7c3aed' });
   const [formTurma, setFormTurma]= useState({ label:'', modulo:'', cor:'#7c3aed', hasDesafio:false, periodo:'', ano: new Date().getFullYear().toString() });
   const [saving,    setSaving]   = useState(false);
   const [log,       setLog]      = useState('');
-  const [confirmItem, setConfirmItem] = useState(null); // { type:'disc'|'turma', item, onConfirm }
+  const [confirmItem, setConfirmItem] = useState(null);
+
+  // ── Drag para reordenar disciplinas ───────────────────────
+  const [discOrdens, setDiscOrdens] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('teachly_disc_ordem') || '{}'); }
+    catch { return {}; }
+  });
+  const [dragState, setDragState] = useState(null); // { turmaId, fromId, overId }
+  const dragRef = useRef(null);
+
+  const getDiscsOrdenadas = (turma) => {
+    const ordem = discOrdens[turma.id];
+    if (!ordem) return turma.disciplinas;
+    const map = Object.fromEntries(turma.disciplinas.map(d => [d.id, d]));
+    const ordenadas = ordem.map(id => map[id]).filter(Boolean);
+    const novas = turma.disciplinas.filter(d => !ordem.includes(d.id));
+    return [...ordenadas, ...novas];
+  };
+
+  const aplicarOrdem = (tId, fromId, toId) => {
+    if (fromId === toId) return;
+    const turma = turmas.find(t => t.id === tId);
+    if (!turma) return;
+    const discs = getDiscsOrdenadas(turma);
+    const fromIdx = discs.findIndex(d => d.id === fromId);
+    const toIdx   = discs.findIndex(d => d.id === toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...discs];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    const novaOrdem = { ...discOrdens, [tId]: next.map(d => d.id) };
+    setDiscOrdens(novaOrdem);
+    localStorage.setItem('teachly_disc_ordem', JSON.stringify(novaOrdem));
+  };
+
+  // Inicia drag — window pointermove sem capture
+  const iniciarDrag = (e, tId, discId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { turmaId: tId, fromId: discId };
+    setDragState({ turmaId: tId, fromId: discId, overId: discId });
+
+    const onMove = (ev) => {
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      const card = target?.closest('[data-disc-id]');
+      if (card && card.dataset.turmaId === tId) {
+        setDragState(s => s ? { ...s, overId: card.dataset.discId } : null);
+      }
+    };
+
+    const onUp = (ev) => {
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      const card = target?.closest('[data-disc-id]');
+      if (card && card.dataset.turmaId === tId && dragRef.current) {
+        aplicarOrdem(tId, dragRef.current.fromId, card.dataset.discId);
+      }
+      dragRef.current = null;
+      setDragState(null);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
 
   const fd = k => e => setFormDisc(p=>({...p,[k]: e.target?.value ?? e}));
   const ft = k => e => setFormTurma(p=>({...p,[k]: e.target?.value ?? e}));
@@ -275,15 +339,39 @@ export function GerenciarDiscs() {
             </div>
           ) : (
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:10 }}>
-              {turma.disciplinas.map(disc => (
-                <div key={disc.id} style={{
-                  background: disc.ativa ? `${disc.cor}10` : 'var(--surface)',
-                  border:`1px solid ${disc.ativa ? disc.cor+'40' : 'var(--border)'}`,
-                  borderRadius:14, padding:'14px', opacity: disc.ativa ? 1 : 0.5,
-                  transition:'all 0.2s',
-                }}>
+              {getDiscsOrdenadas(turma).map(disc => {
+                const isDragging = dragState?.turmaId === turma.id && dragState?.fromId === disc.id;
+                const isOver     = dragState?.turmaId === turma.id && dragState?.overId === disc.id && dragState?.fromId !== disc.id;
+                return (
+                <div key={disc.id}
+                  data-disc-id={disc.id}
+                  data-turma-id={turma.id}
+                  style={{
+                    background: disc.ativa ? `${disc.cor}10` : 'var(--surface)',
+                    border: isOver
+                      ? `2px solid ${disc.cor}`
+                      : `1px solid ${disc.ativa ? disc.cor+'40' : 'var(--border)'}`,
+                    borderRadius: 14, padding: '14px',
+                    opacity: isDragging ? 0.35 : disc.ativa ? 1 : 0.5,
+                    transition: 'opacity 0.12s, border-color 0.12s, transform 0.12s',
+                    userSelect: 'none',
+                    transform: isOver ? 'scale(1.03)' : 'scale(1)',
+                  }}>
                   <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:8 }}>
-                    <div style={{ width:10, height:10, borderRadius:'50%', background:disc.cor, marginTop:3, flexShrink:0 }} />
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      {/* Handle de drag com pointer capture */}
+                      <span
+                        onPointerDown={e => iniciarDrag(e, turma.id, disc.id)}
+                        style={{
+                          color: 'var(--text3)', fontSize: '1.1rem',
+                          cursor: 'grab', userSelect: 'none',
+                          padding: '2px 4px', lineHeight: 1,
+                          touchAction: 'none',
+                        }}
+                        title="Segure e arraste para reordenar"
+                      >⠿</span>
+                      <div style={{ width:10, height:10, borderRadius:'50%', background:disc.cor, flexShrink:0 }} />
+                    </div>
                     <div style={{ display:'flex', gap:4 }}>
                       <button onClick={()=>toggleAtiva(disc)} title={disc.ativa?'Desativar':'Ativar'} style={{
                         width:28, height:28, borderRadius:8, border:`1px solid var(--border)`, cursor:'pointer',
@@ -322,7 +410,8 @@ export function GerenciarDiscs() {
                       : '📥 Sem plano — clique em 📥 para importar'}
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>

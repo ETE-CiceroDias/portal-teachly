@@ -24,6 +24,7 @@ import { Admin }             from './pages/Admin.jsx';
 import { Anotacoes }         from './pages/Anotacoes.jsx';
 import { initTheme, setTheme, getTheme } from './store/theme.js';
 import { Sidebar }           from './components/Sidebar.jsx';
+import { Projetos } from './pages/Projetos.jsx';
 
 // ── Shell interno (tem acesso ao OrgContext) ──────────────────
 function AppShell({ user }) {
@@ -107,18 +108,46 @@ function AppShell({ user }) {
 
       case 'disciplinas': return <GerenciarDiscs />;
       case 'admin':       return <Admin />;
-      case 'anotacoes':   return <Anotacoes onBack={() => setActiveTab(prevTab || 'dashboard')} />;
+      case 'projetos':
+        return <Projetos activeTurmaId={turmaAtiva?.id} turmaLabel={turmaAtiva?.label} turmaModulo={turmaAtiva?.modulo} userId={user?.id} />;
+    case 'anotacoes':   return <Anotacoes onBack={() => setActiveTab(prevTab || 'dashboard')} />;
       default:
         // Disciplina pelo ID ou key
         const disc = discsAtivas.find(d => d.id === activeTab || d.key === activeTab);
         if (disc) {
-          // casa pelo código (DE_232 → dcu) ou pelo nome
-          const match = Object.values(COURSES).find(c =>
-            c.code === disc.code ||
-            c.fullname?.toLowerCase() === disc.label?.toLowerCase() ||
-            c.label?.toLowerCase() === disc.label?.toLowerCase()
-          );
-          const courseKey = match?.key || disc.key;
+          // Tenta encontrar o courseKey correspondente no COURSES estático
+          let courseKey = null;
+
+          // 1. disc.key é direto uma key válida do COURSES (ex: 'dt', 'dcu')
+          if (disc.key && COURSES[disc.key]) {
+            courseKey = disc.key;
+          }
+
+          // 2. Match por code da disciplina (mais confiável — DE_233 → dt)
+          if (!courseKey && disc.code) {
+            const m = Object.values(COURSES).find(c => c.code === disc.code);
+            if (m) courseKey = m.key;
+          }
+
+          // 3. Match por fullname exato (ex: "Design Thinking" → dt)
+          if (!courseKey && disc.label) {
+            const labelNorm = disc.label.toLowerCase().trim();
+            const m = Object.values(COURSES).find(c =>
+              c.fullname?.toLowerCase().trim() === labelNorm ||
+              c.label?.toLowerCase().trim() === labelNorm
+            );
+            if (m) courseKey = m.key;
+          }
+
+          // 4. Match por fullname parcial (ex: "Design Think" → dt)
+          if (!courseKey && disc.label) {
+            const labelNorm = disc.label.toLowerCase().trim();
+            const m = Object.values(COURSES).find(c =>
+              c.fullname?.toLowerCase().includes(labelNorm) ||
+              labelNorm.includes(c.label?.toLowerCase().trim() || '___')
+            );
+            if (m) courseKey = m.key;
+          }
           return (
             <CoursePage
               courseKey={courseKey || disc.key}
@@ -132,11 +161,16 @@ function AppShell({ user }) {
               onSave={handleSave}
               onReorder={(bi, fi, ti) => {
                 if (!courseKey) return;
-                const course = COURSES[courseKey];
-                const bloco  = course.blocos[bi];
+                // Usa a ordem atual do state se existir, senão infere pelo tamanho
+                // NÃO usa COURSES[courseKey] pois pode ter aulas novas não salvas lá
                 const orderKey = `${courseKey}_${turmaKey}_order_b${bi}`;
-                const cur  = state[orderKey] || bloco.aulas.map((_,i)=>i);
-                const next = [...cur];
+                const cur = state[orderKey];
+                // Se não tem ordem salva, cria baseado no maior índice conhecido
+                const maxIdx = Math.max(fi, ti);
+                const base = cur || Array.from({ length: maxIdx + 1 }, (_, i) => i);
+                const next = [...base];
+                // Garante que o array tem índices suficientes
+                while (next.length <= maxIdx) next.push(next.length);
                 const [moved] = next.splice(fi, 1);
                 next.splice(ti, 0, moved);
                 persist(prev => ({ ...prev, [orderKey]: next }));

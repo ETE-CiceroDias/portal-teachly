@@ -345,18 +345,33 @@ export function CoursePage({ courseKey, discId, discBlocos, discLabel, discCode,
       titulo: 'Bloco ' + num + ' . Novo Bloco',
       aulas: [{ id: 'AULA 01', titulo: 'Aula 01\nSubtítulo' }],
     };
-    setBlocosEdit([...currentBlocos, newBloco]);
+    const novos = [...currentBlocos, newBloco];
+    setBlocosEdit(novos);
+    if (discId) {
+      supabase.from('disciplinas').update({ blocos: novos }).eq('id', discId)
+        .then(({ error }) => { if (error) console.error('Erro ao adicionar bloco:', error); });
+    }
   };
 
   const handleUpdateBloco = (idx, updated) => {
     const currentBlocos = blocosEdit ?? blocosFonte;
-    setBlocosEdit(currentBlocos.map((b, i) => i === idx ? updated : b));
+    const novos = currentBlocos.map((b, i) => i === idx ? updated : b);
+    setBlocosEdit(novos);
+    // Auto-salva no banco imediatamente (sem precisar clicar em Salvar)
+    if (discId) {
+      supabase.from('disciplinas').update({ blocos: novos }).eq('id', discId)
+        .then(({ error }) => { if (error) console.error('Erro ao salvar bloco:', error); });
+    }
   };
 
   const handleDeleteBloco = (idx) => {
-    // Chamado pelo Bloco após confirmação no próprio modal
     const currentBlocos = blocosEdit ?? blocosFonte;
-    setBlocosEdit(currentBlocos.filter((_, i) => i !== idx));
+    const novos = currentBlocos.filter((_, i) => i !== idx);
+    setBlocosEdit(novos);
+    if (discId) {
+      supabase.from('disciplinas').update({ blocos: novos }).eq('id', discId)
+        .then(({ error }) => { if (error) console.error('Erro ao deletar bloco:', error); });
+    }
   };
 
   // ── Mini projetos CRUD ─────────────────────────────────────
@@ -388,8 +403,24 @@ export function CoursePage({ courseKey, discId, discBlocos, discLabel, discCode,
     setProjetos(p => p.filter((_, i) => i !== idx));
   };
 
-  // Prioridade: blocosEdit (edição em curso) > blocos do banco > blocos do COURSES local
-  const blocosFonte = discBlocos?.length ? discBlocos : (course?.blocos || []);
+  // Prioridade: blocosEdit (edição em curso) > blocos do banco > blocos do COURSES estático
+  // IMPORTANTE: se courseKey existe no COURSES estático, usa-o como base
+  // Os discBlocos do banco só sobrepõem quando foram editados manualmente (têm estrutura diferente)
+  const blocosEstaticos = courseLocal?.blocos || [];
+  const blocosDosBanco  = discBlocos || [];
+  // Usa blocos do banco se: não há estático OU os do banco foram explicitamente personalizados
+  // (detectado por terem aula com id diferente do padrão AULA XX, ou título customizado)
+  const bancoParecePersonalizado = blocosDosBanco.length > 0 && (
+    !courseLocal || // sem curso estático, usa banco
+    blocosDosBanco.some(b => b.aulas?.some(a =>
+      a.id && !a.id.startsWith('AULA') && a.id !== 'NOTA'
+    ))
+  );
+  const blocosFonte = blocosEdit !== null
+    ? (blocosEdit)
+    : bancoParecePersonalizado
+      ? blocosDosBanco
+      : (blocosEstaticos.length ? blocosEstaticos : blocosDosBanco);
   const blocosAtivos = blocosEdit ?? blocosFonte;
   const courseComBlocos = { ...course, blocos: blocosAtivos };
   const allCoursesComBlocos = { ...COURSES, [courseKey]: courseComBlocos };

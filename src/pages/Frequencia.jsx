@@ -5,6 +5,7 @@
 
 import { EmptyState } from '../components/EmptyState.jsx';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useOrg } from '../store/OrgContext.jsx';
 import { TURMAS, ALUNO_CORES } from '../data/turmas.js';
@@ -39,13 +40,14 @@ async function getAlunosFromGrupos(turmaId) {
 }
 
 function Modal({ title, onClose, children }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-title">{title}</div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -110,7 +112,6 @@ function SyncedScrollTable({ children }) {
 function ResizableTable({ alunos, onEdit, onDelete }) {
   // ✅ NOVO: Adicionar coluna "id" (por padrão 60px)
   const [colWidths, setColWidths] = useState({ 
-    id: 60, 
     num: 48, 
     nome: 260, 
     matricula: 120, 
@@ -154,8 +155,7 @@ function ResizableTable({ alunos, onEdit, onDelete }) {
     borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)',
     overflow: 'hidden', textAlign: center ? 'center' : 'left',
     background: 'var(--surface)',
-    fontFamily: center && w === colWidths.id ? 'monospace' : 'inherit',
-    fontSize: center && w === colWidths.id ? '0.75rem' : 'inherit',
+
   });
 
   const resizerStyle = {
@@ -165,20 +165,13 @@ function ResizableTable({ alunos, onEdit, onDelete }) {
     transition: 'background 0.15s',
   };
 
-  const totalWidth = colWidths.id + colWidths.num + colWidths.nome + colWidths.matricula + colWidths.acoes;
+  const totalWidth = colWidths.num + colWidths.nome + colWidths.matricula + colWidths.acoes;
 
   return (
     <div style={{ borderRadius: 'var(--r-md)', border: '1px solid var(--border)', overflow: 'auto', marginBottom: 20 }}>
       <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: totalWidth }}>
         <thead>
           <tr>
-            {/* ✅ NOVA COLUNA: ID */}
-            <th style={{ ...thStyle(colWidths.id), textAlign: 'center' }}>
-              ID
-              <div style={resizerStyle} onMouseDown={e => startResize('id', e)}
-                onMouseEnter={e => e.currentTarget.style.background='var(--accent)'} 
-                onMouseLeave={e => e.currentTarget.style.background='transparent'} />
-            </th>
             {/* # */}
             <th style={{ ...thStyle(colWidths.num), textAlign: 'center' }}>
               #
@@ -211,12 +204,6 @@ function ResizableTable({ alunos, onEdit, onDelete }) {
               <tr key={a.id} style={{ background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)' }}
                 onMouseEnter={e => e.currentTarget.style.background='var(--accent-faint)'}
                 onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)'}>
-                {/* ✅ COLUNA DE ID */}
-                <td style={{ ...tdStyle(colWidths.id, true), borderBottom: i === alunos.length-1 ? 'none' : '1px solid var(--border)' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, fontFamily: 'monospace' }}>
-                    {formatId(a.id)}
-                  </span>
-                </td>
                 {/* # */}
                 <td style={{ ...tdStyle(colWidths.num, true), borderBottom: i === alunos.length-1 ? 'none' : '1px solid var(--border)' }}>
                   <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:24, height:24, borderRadius:5, background:'var(--surface2)', fontSize:'0.7rem', fontWeight:700, color:'var(--text3)' }}>
@@ -253,8 +240,11 @@ function ResizableTable({ alunos, onEdit, onDelete }) {
 }
 
 export function Frequencia({ activeTurma, turmaKey }) {
-  const { org } = useOrg();
-  const turma   = TURMAS[turmaKey] || TURMAS[activeTurma];
+  const { org, turmas: turmasOrg } = useOrg();
+  // Resolve turma: primeiro do banco, depois do estático
+  const turma = turmasOrg.find(t => t.id === activeTurma || t.key === turmaKey)
+             || TURMAS[turmaKey]
+             || TURMAS[activeTurma];
   const turmaId = activeTurma || TURMA_IDS[turmaKey];
 
   const [turmaData, setTurmaData] = useState({ alunos: [], aulas: [], presencas: {} });
@@ -263,6 +253,8 @@ export function Frequencia({ activeTurma, turmaKey }) {
   useEffect(() => {
     async function load() {
       setLoading(true);
+
+      // ── Aulas ──────────────────────────────────────────────
       const { data: aulasRows } = await supabase
         .from('aulas_frequencia').select('*').eq('turma_id', turmaId).order('data');
 
@@ -278,10 +270,35 @@ export function Frequencia({ activeTurma, turmaKey }) {
         });
       }
 
+      // ── Alunos em alunos_frequencia ────────────────────────
       const { data: alunosRows } = await supabase
         .from('alunos_frequencia').select('*').eq('turma_id', turmaId).order('nome');
 
-      const alunos = (alunosRows || []).map(r => ({ id: r.id, nome: r.nome, matricula: r.matricula || '' }));
+      let alunos = (alunosRows || []).map(r => ({ id: r.id, nome: r.nome, matricula: r.matricula || '' }));
+
+      // ── Auto-sync: importa alunos matriculados que ainda não estão aqui ──
+      // Busca alunos da tabela global que têm matrícula nesta turma
+      const { data: matriculados } = await supabase
+        .from('matriculas')
+        .select('aluno_id, alunos(id, nome, matricula)')
+        .eq('turma_id', turmaId);
+
+      if (matriculados && matriculados.length > 0) {
+        const jaExistem = new Set(alunos.map(a => a.nome.toLowerCase().trim()));
+        const novos = matriculados
+          .map(m => m.alunos)
+          .filter(a => a && a.nome && !jaExistem.has(a.nome.toLowerCase().trim()));
+
+        if (novos.length > 0) {
+          const rows = novos.map(a => ({ turma_id: turmaId, nome: a.nome, matricula: a.matricula || '' }));
+          const { data: inseridos } = await supabase
+            .from('alunos_frequencia').insert(rows).select();
+          if (inseridos) {
+            alunos = [...alunos, ...inseridos.map(r => ({ id: r.id, nome: r.nome, matricula: r.matricula || '' }))]
+              .sort((a, b) => a.nome.localeCompare(b.nome));
+          }
+        }
+      }
 
       setTurmaData({ alunos, aulas, presencas });
       setLoading(false);
@@ -301,9 +318,12 @@ export function Frequencia({ activeTurma, turmaKey }) {
   const [formAula,     setFormAula]     = useState({ data: todayISO(), disciplina: '' });
   const [viewMode,     setViewMode]     = useState('grid');
   const [weekOffset,   setWeekOffset]   = useState(0);
+  const [hoverRow,     setHoverRow]     = useState(null); // id do aluno em hover
+  const [hoverCol,     setHoverCol]     = useState(null); // id da aula em hover
   const [importSel,    setImportSel]    = useState([]);
   const [syncMsg,      setSyncMsg]      = useState('');
   const [syncing,      setSyncing]      = useState(false);
+  const [syncingH,     setSyncingH]     = useState(false);
 
   const [alunosDoGrupo, setAlunosDoGrupo] = useState([]);
   useEffect(() => { getAlunosFromGrupos(turmaId).then(setAlunosDoGrupo); }, [turmaId]);
@@ -332,6 +352,101 @@ export function Frequencia({ activeTurma, turmaKey }) {
     } catch(e) {
       setSyncMsg('Erro ao sincronizar: ' + (e.message || 'verifique sua conexão'));
     } finally { setSyncing(false); }
+  };
+
+  // ── Sincronizar horário → aulas da semana ─────────────────────────
+  // Busca os dias/horas que a turma tem aula na grade e cria
+  // os registros de aulas_frequencia para as próximas N semanas
+  const sincronizarHorario = async (semanas = 1) => {
+    setSyncingH(true); setSyncMsg('');
+    try {
+      // Busca TODOS os slots do horário (sem filtro)
+      const { data: todosSlots } = await supabase
+        .from('horario')
+        .select('dia, hora_inicio, disciplina, turma_label');
+
+      // Mapeamento label do banco → chaves estáticas possíveis
+      const labelParaKeyEstatica = (label, modulo) => {
+        const l = (label || '').toLowerCase();
+        const m = (modulo || '').toLowerCase();
+        if (l.includes('única') || l.includes('unica')) return 'mod3';
+        if (l.includes('b')) return m.includes('1') ? 'mod1b' : null;
+        if (l.includes('a') && !l.includes('única')) return m.includes('1') ? 'mod1a' : null;
+        return null;
+      };
+      const keyEstatica = labelParaKeyEstatica(turma?.label, turma?.modulo);
+
+      // Também tenta match via TURMAS estático — label+módulo → key
+      const keyPorLabelModulo = Object.entries(TURMAS).find(([, t]) =>
+        t.label === turma?.label && t.modulo === turma?.modulo
+      )?.[0];
+
+      // Todos os valores possíveis desta turma
+      const possiveisLabels = [
+        turmaKey, turmaId, turma?.label, turma?.key, keyEstatica, keyPorLabelModulo,
+      ].filter(Boolean);
+
+      const slots = (todosSlots || []).filter(s =>
+        possiveisLabels.some(v => s.turma_label === v)
+      );
+
+      if (slots.length === 0) {
+        const labelsNoBanco = [...new Set((todosSlots || []).map(s => s.turma_label).filter(Boolean))];
+        const msgDebug = labelsNoBanco.length > 0
+          ? `Turmas no banco: ${labelsNoBanco.join(', ')} | Esta turma buscou: ${possiveisLabels.join(', ')}`
+          : 'Nenhuma aula cadastrada no Horário ainda.';
+        setSyncMsg(`⚠ Nenhum horário encontrado. ${msgDebug}`);
+        setSyncingH(false); return;
+      }
+
+      // Mapa: nome abrev → índice JS (0=Dom,1=Seg,...)
+      const DIA_IDX = { 'Dom':0, 'Seg':1, 'Ter':2, 'Qua':3, 'Qui':4, 'Sex':5, 'Sáb':6 };
+      const diasComAula = [...new Set(slots.map(s => s.dia))];
+
+      // Pega início da semana atual (segunda-feira)
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const dow = hoje.getDay();
+      const inicioSemana = new Date(hoje);
+      inicioSemana.setDate(hoje.getDate() - (dow === 0 ? 6 : dow - 1)); // Segunda da semana atual
+
+      const datasGeradas = [];
+
+      for (let w = 0; w < semanas; w++) {
+        for (const dia of diasComAula) {
+          const idx = DIA_IDX[dia];
+          if (idx === undefined) continue;
+          // Calcula offset da segunda (1=Seg, 2=Ter, ..., 0=Dom vira 7)
+          const offsetDia = idx === 0 ? 6 : idx - 1;
+          const d = new Date(inicioSemana);
+          d.setDate(inicioSemana.getDate() + offsetDia + w * 7);
+          const iso = d.toISOString().split('T')[0];
+          const discs = slots.filter(s => s.dia === dia).map(s => s.disciplina).filter(Boolean);
+          datasGeradas.push({ iso, disciplina: discs[0] || '' });
+        }
+      }
+
+      // Filtra datas que já existem
+      const jaCadastradas = new Set(turmaData.aulas.map(a => a.data));
+      const novas = datasGeradas.filter(d => !jaCadastradas.has(d.iso));
+
+      if (novas.length === 0) {
+        setSyncMsg('✓ Todas as aulas do horário já estão registradas neste período.');
+        setSyncingH(false); return;
+      }
+
+      const rows = novas.map(d => ({ turma_id: turmaId, data: d.iso }));
+      const { data: inserted, error } = await supabase
+        .from('aulas_frequencia').insert(rows).select();
+      if (error) throw error;
+
+      const aulasNovas = (inserted || []).map(r => ({ id: r.id, data: r.data, disciplina: '' }));
+      const aulasOrdenadas = [...turmaData.aulas, ...aulasNovas].sort((a,b) => a.data.localeCompare(b.data));
+      // Usa setTurmaData diretamente para garantir que alunos e presencas não são perdidos
+      setTurmaData(prev => ({ ...prev, aulas: aulasOrdenadas }));
+      setSyncMsg(`✓ ${aulasNovas.length} aula${aulasNovas.length > 1 ? 's' : ''} adicionada${aulasNovas.length > 1 ? 's' : ''} com base no horário.`);
+    } catch(e) {
+      setSyncMsg('Erro ao sincronizar horário: ' + (e.message || 'verifique sua conexão'));
+    } finally { setSyncingH(false); }
   };
 
   const toggleImportSel = (nome) => {
@@ -471,20 +586,20 @@ export function Frequencia({ activeTurma, turmaKey }) {
     setAulaSaving(true); setAulaErro('');
     try {
       const { data, error } = await supabase.from('aulas_frequencia')
-        .insert({ turma_id: turmaId, data: formAula.data, disciplina: formAula.disciplina })
+        .insert({ turma_id: turmaId, data: formAula.data })
         .select().single();
       if (error) {
-        if (error.code === '23505') throw new Error(`Já existe uma aula registrada em ${formAula.data}. Escolha outra data.`);
-        throw error;
+        if (error.code === '23505') throw new Error(`Já existe uma aula em ${formAula.data}.`);
+        throw new Error(`[${error.code}] ${error.message}`);
       }
       if (data) {
         const aula = { id: data.id, data: data.data, disciplina: formAula.disciplina };
-        await persist({ ...turmaData, aulas: [...turmaData.aulas, aula] });
+        await persist({ ...turmaData, aulas: [...turmaData.aulas, aula].sort((a,b) => a.data.localeCompare(b.data)) });
         setFormAula({ data: todayISO(), disciplina: '' });
         setShowAddAula(false);
       }
     } catch(e) {
-      setAulaErro(e.message || 'Erro ao registrar aula. Verifique sua conexão.');
+      setAulaErro(e.message || 'Erro desconhecido.');
     } finally { setAulaSaving(false); }
   };
 
@@ -569,6 +684,10 @@ export function Frequencia({ activeTurma, turmaKey }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn-ghost" onClick={sincronizarAlunos} disabled={syncing} title="Importa automaticamente os alunos matriculados nesta turma">
             {syncing ? 'Sincronizando…' : '↻ Sincronizar alunos'}
+          </button>
+          <button className="btn-ghost" onClick={() => sincronizarHorario(1)} disabled={syncingH}
+            title="Gera automaticamente as aulas desta semana com base na grade de horários">
+            {syncingH ? 'Gerando…' : '📅 Gerar aulas do horário'}
           </button>
           {alunosDoGrupo.length > 0 && (
             <button className="btn-ghost" onClick={() => { setImportSel([]); setShowImport(true); }}>
@@ -691,7 +810,10 @@ export function Frequencia({ activeTurma, turmaKey }) {
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8125rem', minWidth: 400 }}>
                     <thead>
                       <tr>
-                        <th style={{ padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px 0 0 0', textAlign: 'left', color: 'var(--text3)', fontWeight: 700, position: 'sticky', left: 0, zIndex: 2, minWidth: 180 }}>
+                        <th style={{ padding: '10px 8px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px 0 0 0', textAlign: 'center', color: 'var(--text3)', fontWeight: 700, position: 'sticky', left: 0, zIndex: 2, minWidth: 48, width: 48, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                          #
+                        </th>
+                        <th style={{ padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'left', color: 'var(--text3)', fontWeight: 700, minWidth: 180 }}>
                           Aluno
                         </th>
                         {aulasNaSemana.map((au, i) => {
@@ -722,10 +844,18 @@ export function Frequencia({ activeTurma, turmaKey }) {
                         const cor = ALUNO_CORES[ri % ALUNO_CORES.length];
                         const riskColor = a.pct < 75 ? 'var(--red)' : a.pct < 85 ? 'var(--amber)' : 'var(--green)';
                         return (
-                          <tr key={a.id}>
-                            <td style={{ padding: '9px 14px', background: 'var(--surface)', border: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1 }}>
+                          <tr key={a.id}
+                            onMouseEnter={() => setHoverRow(a.id)}
+                            onMouseLeave={() => setHoverRow(null)}>
+                            {/* Coluna ID — número sequencial */}
+                            <td style={{ padding: '6px 8px', background: hoverRow === a.id ? 'var(--accent-faint)' : 'var(--surface)', border: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1, textAlign: 'center', width: 48, minWidth: 48, transition: 'background 0.1s' }}>
+                              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text2)' }}>
+                                {ri + 1}
+                              </span>
+                            </td>
+                            {/* Coluna Aluno — avatar + nome, sem número */}
+                            <td style={{ padding: '9px 14px', background: hoverRow === a.id ? 'var(--accent-faint)' : 'var(--surface)', border: '1px solid var(--border)', transition: 'background 0.1s' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text3)', minWidth: 16, textAlign: 'right', flexShrink: 0 }}>#{ri + 1}</div>
                                 <div className="aluno-avatar" style={{ background: cor.bg, color: cor.text, width: 24, height: 24, fontSize: '0.65rem' }}>
                                   {initials(a.nome)}
                                 </div>
@@ -743,16 +873,28 @@ export function Frequencia({ activeTurma, turmaKey }) {
                               const pres = isPresente(a.id, au.id);
                               return (
                                 <td key={au.id}
-                                  style={{ padding: 6, border: '1px solid var(--border)', textAlign: 'center', background: pres ? 'rgba(74,222,128,0.07)' : 'rgba(248,113,113,0.04)', cursor: 'pointer', transition:'background 0.1s' }}
+                                  onMouseEnter={() => setHoverCol(au.id)}
+                                  onMouseLeave={() => setHoverCol(null)}
+                                  style={{
+                                    padding: 6, border: '1px solid var(--border)', textAlign: 'center',
+                                    background: hoverRow === a.id && hoverCol === au.id
+                                      ? (pres ? 'rgba(74,222,128,0.22)' : 'rgba(248,113,113,0.18)')
+                                      : hoverRow === a.id || hoverCol === au.id
+                                        ? 'rgba(192,132,252,0.10)'
+                                        : pres ? 'rgba(74,222,128,0.07)' : 'rgba(248,113,113,0.04)',
+                                    cursor: 'pointer', transition: 'background 0.1s',
+                                    outline: hoverRow === a.id && hoverCol === au.id ? '2px solid var(--accent)' : 'none',
+                                    outlineOffset: '-2px',
+                                  }}
                                   onClick={() => togglePresenca(a.id, au.id)}
-                                  title={pres ? 'Presente — clique para falta' : 'Falta — clique para presença'}>
+                                  title={`${a.nome} — ${pres ? 'Presente (clique para falta)' : 'Falta (clique para presença)'}`}>
                                   {pres
                                     ? <CheckCircle size={20} color="var(--green)" weight="fill" />
                                     : <XCircle size={20} color="var(--red)" weight="fill" />}
                                 </td>
                               );
                             })}
-                            <td style={{ padding: '8px 10px', border: '1px solid var(--border)', textAlign: 'center', background: 'var(--surface)' }}>
+                            <td style={{ padding: '8px 10px', border: '1px solid var(--border)', textAlign: 'center', background: hoverRow === a.id ? 'var(--accent-faint)' : 'var(--surface)', transition: 'background 0.1s' }}>
                               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: riskColor, fontSize: '0.95rem' }}>{a.pct}%</div>
                               <div style={{ fontSize: '0.65rem', color: 'var(--text3)' }}>{a.presente}/{a.total}</div>
                             </td>
